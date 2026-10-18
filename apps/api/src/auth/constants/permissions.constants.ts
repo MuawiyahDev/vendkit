@@ -18,6 +18,7 @@ export const Permissions = {
     'customer:update',
     'customer:delete',
   ],
+  order: ['order:read', 'order:create', 'order:update', 'order:delete'],
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions][number];
@@ -34,6 +35,7 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     ...Permissions.image,
     ...Permissions.product,
     ...Permissions.customer,
+    ...Permissions.order,
   ] as readonly Permission[],
   [Role.ADMIN]: [
     ...Permissions.admin,
@@ -42,5 +44,6 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     ...Permissions.image,
     ...Permissions.product,
     ...Permissions.customer,
+    ...Permissions.order,
   ] as readonly Permission[],
 };
