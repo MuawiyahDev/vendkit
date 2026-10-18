@@ -72,6 +72,20 @@ Write clean, reusable, maintainable, readable, and production-ready code.
 - Do not introduce features beyond the task's scope.
 - Never sacrifice correctness or security for fewer lines of code.
 
+### File Organization
+
+Split modules into focused files instead of growing a single large file. Keep each concern in its own file with a clear name:
+
+- `*.constants.ts` — constant values, shared literal maps, transition tables, and Prisma include/select definitions.
+- `*.types.ts` — shared TypeScript interfaces, type aliases, and payload types.
+- `*.utils.ts` — pure, reusable helper functions (for example number generation, date parsing, status derivation, error mapping). Put helpers used by multiple modules in `common/utils`; keep module-specific helpers inside the module directory. Add co-located `*.utils.spec.ts` tests where appropriate.
+- `*.mapper.ts` — functions that map database records to API response shapes.
+- `*.service.ts` — business logic and orchestration only; do not embed blocks of constants, types, or pure helpers here.
+- `*.controller.ts` — HTTP concerns only (routing, guards/permissions, request parsing, response codes).
+- `dto/` — request validation classes for each operation.
+
+Extract constants, types, pure helpers, and response mappers out of services and controllers as soon as they are more than a trivial inline detail. Apply this pattern to both `apps/api` and `apps/web` when a module grows beyond a single responsibility.
+
 ## 5. TypeScript Standards
 
 - Use TypeScript strict mode and preserve existing compiler settings.
