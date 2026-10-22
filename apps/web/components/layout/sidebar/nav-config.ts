@@ -1,0 +1,37 @@
+import { LayoutDashboard, type LucideIcon } from "lucide-react";
+
+export interface NavItem {
+  title: string;
+  href: string;
+  icon: LucideIcon;
+}
+
+export interface NavGroup {
+  label?: string;
+  items: NavItem[];
+}
+
+/**
+ * Navigation configuration for the dashboard sidebar.
+ * Add items here as new feature routes become available.
+ */
+export const NAV_GROUPS: NavGroup[] = [
+  {
+    items: [{ title: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
+  },
+];
+
+export const NAV_FALLBACK_TITLE = "Dashboard";
+
+export function isNavItemActive(pathname: string, href: string): boolean {
+  if (pathname === href) {
+    return true;
+  }
+  // The dashboard entry should not light up for unrelated nested routes.
+  return href !== "/dashboard" && pathname.startsWith(`${href}/`);
+}
+
+export function findNavItem(pathname: string): NavItem | undefined {
+  const items = NAV_GROUPS.flatMap((group) => group.items);
+  return items.find((item) => isNavItemActive(pathname, item.href));
+}
