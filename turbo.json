@@ -1,6 +1,7 @@
 {
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
+  "globalEnv": ["NEST_API_URL", "API_KEY", "NODE_ENV"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
