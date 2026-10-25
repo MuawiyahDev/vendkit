@@ -20,7 +20,7 @@ export function AuthFormCard({
   children,
 }: AuthFormCardProps) {
   return (
-    <Card className="border-border/70 w-full shadow-xs">
+    <Card className="border-border/70 w-full">
       <CardHeader className="gap-1.5">
         <CardTitle className="text-xl tracking-tight">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>

@@ -20,12 +20,12 @@ export function EmptyState({
   return (
     <section
       className={cn(
-        "bg-card flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed px-6 py-14 text-center",
+        "bg-card flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-border-strong/70 px-6 py-14 text-center",
         className,
       )}
     >
       {Icon ? (
-        <span className="bg-muted text-muted-foreground flex size-11 items-center justify-center rounded-full">
+        <span className="bg-surface-muted text-muted-foreground ring-border-subtle flex size-12 items-center justify-center rounded-xl ring-1 ring-inset">
           <Icon className="size-5" aria-hidden="true" />
         </span>
       ) : null}
@@ -37,7 +37,11 @@ export function EmptyState({
           </p>
         ) : null}
       </div>
-      {children}
+      {children ? (
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }

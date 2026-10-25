@@ -5,7 +5,7 @@ import { DashboardWelcome } from "@/features/dashboard/components/dashboard-welc
 
 export default function DashboardPage() {
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <DashboardWelcome />
       <EmptyState
         icon={ReceiptText}
