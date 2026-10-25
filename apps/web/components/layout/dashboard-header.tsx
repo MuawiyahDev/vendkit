@@ -24,12 +24,12 @@ export function DashboardHeader({
   const title = findNavItem(pathname)?.title ?? NAV_FALLBACK_TITLE;
 
   return (
-    <header className="bg-background/95 supports-[backdrop-filter]:bg-background/80 sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2.5 border-b px-4 backdrop-blur md:px-6">
+    <header className="bg-background/95 supports-[backdrop-filter]:bg-background/80 border-border-subtle sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2.5 border-b px-4 backdrop-blur md:px-6">
       <MobileSidebar />
       <Button
         variant="ghost"
         size="icon-sm"
-        className="hidden lg:inline-flex"
+        className="text-muted-foreground hidden lg:inline-flex"
         onClick={onToggleCollapse}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
@@ -40,9 +40,9 @@ export function DashboardHeader({
           <PanelLeftClose aria-hidden="true" />
         )}
       </Button>
-      <h1 className="text-foreground min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
+      <div className="text-foreground min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
         {title}
-      </h1>
+      </div>
       <UserMenu />
     </header>
   );

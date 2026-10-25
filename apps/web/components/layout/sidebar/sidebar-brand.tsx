@@ -21,7 +21,7 @@ export function SidebarBrand({ collapsed = false }: SidebarBrandProps) {
       aria-label="OpenOrder dashboard"
       className={cn(
         "rounded-md outline-none",
-        "focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "focus-visible:ring-sidebar-ring focus-visible:ring-[3px]",
       )}
     >
       <BrandLogo collapsed={collapsed} />
@@ -31,7 +31,7 @@ export function SidebarBrand({ collapsed = false }: SidebarBrandProps) {
   return (
     <div
       className={cn(
-        "border-sidebar-border flex h-14 shrink-0 items-center border-b px-4",
+        "border-sidebar-border flex h-14 shrink-0 items-center border-b px-3.5",
         collapsed && "justify-center px-0",
       )}
     >

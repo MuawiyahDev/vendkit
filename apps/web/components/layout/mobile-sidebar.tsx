@@ -24,7 +24,7 @@ export function MobileSidebar() {
         <Button
           variant="ghost"
           size="icon-sm"
-          className="lg:hidden"
+          className="text-muted-foreground lg:hidden"
           aria-label="Open navigation menu"
         >
           <Menu aria-hidden="true" />
@@ -32,9 +32,9 @@ export function MobileSidebar() {
       </SheetTrigger>
       <SheetContent
         side="left"
-        className="bg-sidebar text-sidebar-foreground w-72 gap-0 p-0 sm:max-w-xs"
+        className="bg-sidebar text-sidebar-foreground w-72 gap-0 overflow-hidden p-0 sm:max-w-xs"
       >
-        <SheetHeader className="border-sidebar-border h-14 justify-center border-b px-4">
+        <SheetHeader className="border-sidebar-border h-14 shrink-0 justify-center border-b px-3.5">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <BrandLogo />
         </SheetHeader>

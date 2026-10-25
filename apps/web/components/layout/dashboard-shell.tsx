@@ -30,7 +30,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           onToggleCollapse={() => setCollapsed(!collapsed)}
         />
         <main className="flex-1">
-          <div className="mx-auto w-full max-w-7xl px-4 py-6 md:px-6 md:py-8 lg:px-8">
+          <div className="w-full px-4 py-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
             {children}
           </div>
         </main>

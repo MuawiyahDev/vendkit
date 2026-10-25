@@ -36,12 +36,12 @@ export function SidebarItem({
       onClick={onNavigate}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "flex h-9 items-center gap-3 rounded-md px-2.5 text-sm outline-none transition-colors motion-reduce:transition-none",
-        "focus-visible:ring-ring/50 focus-visible:ring-[3px]",
+        "group relative flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm outline-none transition-[color,background-color] duration-150 motion-reduce:transition-none",
+        "focus-visible:ring-sidebar-ring/70 focus-visible:ring-[3px]",
         collapsed && "justify-center px-0",
         isActive
-          ? "bg-primary/10 font-medium text-sidebar-primary"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+          ? "bg-sidebar-primary/12 ring-sidebar-primary/15 font-medium text-sidebar-primary ring-1 ring-inset before:absolute before:top-1/2 before:left-0 before:h-4 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-sidebar-primary before:content-[''] active:bg-sidebar-primary/18"
+          : "text-sidebar-foreground/65 hover:bg-sidebar-accent/80 hover:text-sidebar-foreground active:bg-sidebar-accent",
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden="true" />

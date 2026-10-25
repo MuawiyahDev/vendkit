@@ -15,7 +15,7 @@ export function SidebarGroup({
     <div className="flex flex-col gap-1">
       {label && !collapsed ? (
         <p
-          className="text-muted-foreground/80 px-2.5 pt-1 pb-1.5 text-[0.6875rem] font-medium tracking-wider uppercase"
+          className="text-sidebar-foreground/45 px-2.5 pt-1 pb-1.5 text-[0.6875rem] font-medium tracking-wide uppercase"
           aria-hidden="true"
         >
           {label}

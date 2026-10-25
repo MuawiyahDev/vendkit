@@ -20,7 +20,7 @@ export function SidebarNav({
     <nav
       aria-label="Main navigation"
       className={cn(
-        "flex flex-1 flex-col gap-6 overflow-y-auto overflow-x-hidden px-3 py-4",
+        "flex flex-1 flex-col gap-5 overflow-x-hidden overflow-y-auto overscroll-contain px-3 py-3 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent",
         className,
       )}
     >

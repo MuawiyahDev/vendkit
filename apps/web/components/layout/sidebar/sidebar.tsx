@@ -20,7 +20,7 @@ export function Sidebar({
       data-slot="sidebar"
       data-state={collapsed ? "collapsed" : "expanded"}
       className={cn(
-        "bg-sidebar text-sidebar-foreground flex h-dvh shrink-0 flex-col overflow-hidden border-r border-sidebar-border transition-[width] duration-200 ease-in-out motion-reduce:transition-none",
+        "bg-sidebar text-sidebar-foreground sticky top-0 flex h-dvh shrink-0 flex-col overflow-hidden border-r border-sidebar-border shadow-[4px_0_6px_-6px_var(--shadow-color)] transition-[width] duration-200 ease-in-out motion-reduce:transition-none",
         collapsed ? "w-16" : "w-64",
         className,
       )}
