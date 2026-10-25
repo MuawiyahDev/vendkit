@@ -9,7 +9,7 @@ export class NestApiError extends Error {
 }
 
 interface NestRequestOptions {
-  method: "GET" | "POST";
+  method: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
   accessToken?: string;
 }
