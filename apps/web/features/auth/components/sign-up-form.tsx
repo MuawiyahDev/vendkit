@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 
 import { AuthFormCard } from "@/features/auth/components/auth-form-card";
 import { AuthFormFooter } from "@/features/auth/components/auth-form-footer";
-import { FieldError } from "@/features/auth/components/field-error";
+import { FieldError } from "@/components/shared/field-error";
 import { signUp } from "@/features/auth/api/auth-api";
 import {
   signUpSchema,
