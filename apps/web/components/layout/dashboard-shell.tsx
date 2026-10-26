@@ -23,12 +23,13 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="bg-background flex min-h-dvh w-full">
-      <AppSidebar collapsed={collapsed} className="hidden lg:flex" />
+      <AppSidebar
+        collapsed={collapsed}
+        onToggleCollapse={() => setCollapsed(!collapsed)}
+        className="hidden lg:flex"
+      />
       <div className="flex min-w-0 flex-1 flex-col">
-        <DashboardHeader
-          collapsed={collapsed}
-          onToggleCollapse={() => setCollapsed(!collapsed)}
-        />
+        <DashboardHeader />
         <main className="flex-1">
           <div className="w-full px-4 py-6 md:px-8 md:py-8 lg:px-10 xl:px-12">
             {children}
