@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ApiError } from "@/lib/api/client";
 
 import {
@@ -10,7 +11,6 @@ import {
   type CustomerSortField,
   type SortOrder,
 } from "../api/customers-api";
-import { useDebouncedValue } from "./use-debounced-value";
 
 const SEARCH_DEBOUNCE_MS = 300;
 

@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api/client";
+import type { PaginationMeta } from "@/lib/api/types";
 
 export interface Customer {
   id: string;
@@ -11,13 +12,6 @@ export interface Customer {
   notes: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
 }
 
 export interface CustomerListResponse {

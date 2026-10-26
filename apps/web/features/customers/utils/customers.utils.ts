@@ -16,30 +16,7 @@ export function normalizePhone(value: string): string {
   return phone;
 }
 
-const dateFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
-export function formatDate(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return dateFormatter.format(date);
-}
-
-export function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return "—";
-  }
-  return dateTimeFormatter.format(date);
-}
+export { formatDate, formatDateTime } from "@/lib/format";
 
 export function formatCurrency(amount: string, currency: string): string {
   const value = Number(amount);
@@ -82,10 +59,7 @@ export function getInitials(name: string): string {
 }
 
 /** A customer counts as new during their first 30 days in the directory. */
-export function isNewCustomer(
-  createdAt: string,
-  windowInDays = 30,
-): boolean {
+export function isNewCustomer(createdAt: string, windowInDays = 30): boolean {
   const created = new Date(createdAt).getTime();
   if (Number.isNaN(created)) {
     return false;
