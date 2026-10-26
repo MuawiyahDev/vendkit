@@ -1,4 +1,4 @@
-import { LayoutDashboard, Users, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Tags, Users, type LucideIcon } from "lucide-react";
 
 export interface NavItem {
   title: string;
@@ -22,7 +22,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Selling",
-    items: [{ title: "Customers", href: "/customers", icon: Users }],
+    items: [
+      { title: "Categories", href: "/categories", icon: Tags },
+      { title: "Customers", href: "/customers", icon: Users },
+    ],
   },
 ];
 
