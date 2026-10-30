@@ -13,8 +13,8 @@ const geistMono = localFont({
 
 export const metadata: Metadata = {
   title: {
-    default: "OpenOrder",
-    template: "%s · OpenOrder",
+    default: "VendKit",
+    template: "%s · VendKit",
   },
   description: "Self-hosted order management for social-commerce sellers.",
 };

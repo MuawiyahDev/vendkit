@@ -62,7 +62,7 @@ export function SignUpForm() {
     <div className="flex flex-col gap-4">
       <AuthFormCard
         title="Create your account"
-        description="Start managing orders for your business with OpenOrder."
+        description="Start managing orders for your business with VendKit."
       >
         <form
           onSubmit={handleSubmit(onSubmit)}

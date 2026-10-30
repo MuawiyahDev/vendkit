@@ -1,8 +1,8 @@
-# OpenOrder — Agent Instructions
+# VendKit — Agent Instructions
 
 ## 1. Project Overview
 
-OpenOrder is an open-source, self-hosted order management panel for social-commerce sellers who manage orders through Facebook, Instagram, WhatsApp, and other messaging channels.
+VendKit is an open-source, self-hosted order management panel for social-commerce sellers who manage orders through Facebook, Instagram, WhatsApp, and other messaging channels.
 
 The goal is to provide a simple, reliable way to manage products, customers, orders, payments, delivery, and invoices.
 
@@ -244,7 +244,7 @@ Do not ask for confirmation for routine, reversible implementation details when 
 
 ## 14. Product Scope
 
-OpenOrder is intended to remain a straightforward self-hosted application.
+VendKit is intended to remain a straightforward self-hosted application.
 
 Do not introduce the following unless explicitly requested:
 

@@ -59,7 +59,7 @@ export function SignInForm() {
     <div className="flex flex-col gap-4">
       <AuthFormCard
         title="Welcome back"
-        description="Sign in to your OpenOrder workspace."
+        description="Sign in to your VendKit workspace."
       >
         <form
           onSubmit={handleSubmit(onSubmit)}

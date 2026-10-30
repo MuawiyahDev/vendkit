@@ -18,7 +18,7 @@ export function SidebarBrand({ collapsed = false }: SidebarBrandProps) {
   const logo = (
     <Link
       href="/dashboard"
-      aria-label="OpenOrder dashboard"
+      aria-label="VendKit dashboard"
       className={cn(
         "flex items-center rounded-md outline-none transition-colors duration-150 ease-out motion-reduce:transition-none",
         "focus-visible:ring-2 focus-visible:ring-sidebar-ring/70",
@@ -40,7 +40,7 @@ export function SidebarBrand({ collapsed = false }: SidebarBrandProps) {
         <Tooltip>
           <TooltipTrigger asChild>{logo}</TooltipTrigger>
           <TooltipContent side="right" align="center">
-            OpenOrder
+            VendKit
           </TooltipContent>
         </Tooltip>
       ) : (

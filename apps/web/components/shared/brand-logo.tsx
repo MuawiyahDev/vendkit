@@ -11,7 +11,7 @@ export function BrandLogo({ collapsed = false, className }: BrandLogoProps) {
   return (
     <div
       className={cn("flex min-w-0 items-center gap-2.5", className)}
-      aria-label="OpenOrder"
+      aria-label="VendKit"
     >
       <span
         className="bg-primary text-primary-foreground flex size-8 shrink-0 items-center justify-center rounded-lg"
@@ -21,7 +21,7 @@ export function BrandLogo({ collapsed = false, className }: BrandLogoProps) {
       </span>
       {!collapsed ? (
         <span className="truncate text-sm font-semibold tracking-tight">
-          OpenOrder
+          VendKit
         </span>
       ) : null}
     </div>

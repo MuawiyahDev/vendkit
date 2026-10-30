@@ -8,7 +8,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { useStoredBoolean } from "@/hooks/use-stored-boolean";
 
-const SIDEBAR_COLLAPSED_KEY = "openorder:sidebar-collapsed";
+const SIDEBAR_COLLAPSED_KEY = "vendkit:sidebar-collapsed";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
