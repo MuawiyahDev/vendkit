@@ -57,3 +57,15 @@ function getApiErrorMessage(payload: unknown): string {
   }
   return "Something went wrong. Please try again.";
 }
+
+/**
+ * Builds an ApiError from a raw error payload using the shared message
+ * extraction rules. Used by callers that cannot go through `apiFetch`
+ * (e.g. XMLHttpRequest-based uploads with progress events).
+ */
+export function apiErrorFromPayload(
+  status: number,
+  payload: unknown,
+): ApiError {
+  return new ApiError(status, getApiErrorMessage(payload));
+}

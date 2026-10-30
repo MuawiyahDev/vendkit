@@ -57,6 +57,94 @@ export async function nestFetch<T>(
   return payload as T;
 }
 
+interface NestFormRequestOptions {
+  accessToken?: string;
+}
+
+/**
+ * Sends a multipart/form-data payload to the NestJS API.
+ * The `Content-Type` header is intentionally left unset so `fetch` can
+ * generate the multipart boundary from the FormData body.
+ */
+export async function nestFormData<T>(
+  path: string,
+  formData: FormData,
+  { accessToken }: NestFormRequestOptions = {},
+): Promise<T> {
+  const headers = new Headers({ "x-api-key": getApiKey() });
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${getBaseUrl()}${path}`, {
+      method: "POST",
+      headers,
+      body: formData,
+      cache: "no-store",
+    });
+  } catch {
+    throw new NestApiError(502, "Unable to reach the authentication service");
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  const payload: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new NestApiError(response.status, extractNestErrorMessage(payload));
+  }
+
+  return payload as T;
+}
+
+export interface NestFileResponse {
+  mimeType: string;
+  contentLength: string | null;
+  stream: ReadableStream<Uint8Array> | null;
+}
+
+/**
+ * Fetches a binary file (e.g. a stored image) from the NestJS API and
+ * returns the response body as a stream suitable for a proxied response.
+ */
+export async function nestFetchFile(
+  path: string,
+  { accessToken }: NestFormRequestOptions,
+): Promise<NestFileResponse> {
+  const headers = new Headers({ "x-api-key": getApiKey() });
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(`${getBaseUrl()}${path}`, {
+      method: "GET",
+      headers,
+      cache: "no-store",
+    });
+  } catch {
+    throw new NestApiError(502, "Unable to reach the authentication service");
+  }
+
+  if (!response.ok) {
+    const payload: unknown = await response.json().catch(() => null);
+    throw new NestApiError(response.status, extractNestErrorMessage(payload));
+  }
+
+  return {
+    mimeType: response.headers.get("content-type") ?? "application/octet-stream",
+    contentLength: response.headers.get("content-length"),
+    stream: response.body,
+  };
+}
+
 function getBaseUrl(): string {
   const url = process.env.NEST_API_URL?.trim();
   if (!url) {

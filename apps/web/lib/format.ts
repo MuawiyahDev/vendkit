@@ -22,3 +22,21 @@ export function formatDateTime(value: string): string {
   }
   return dateTimeFormatter.format(date);
 }
+
+const amountFormatter = new Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Formats a decimal amount (e.g. a price returned as a string by the API).
+ * Products and orders do not carry a display currency, so the value is
+ * rendered as a plain grouped number.
+ */
+export function formatAmount(value: string | number): string {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return "—";
+  }
+  return amountFormatter.format(parsed);
+}
