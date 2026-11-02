@@ -169,8 +169,8 @@ model ProductImage {
 model Order {
   id                 String        @id @default(uuid())
   orderNumber        String        @unique
-  customerId         String
-  customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerId         String?
+  customer           Customer?     @relation(fields: [customerId], references: [id], onDelete: Restrict)
   status             OrderStatus   @default(PENDING)
   paymentStatus      PaymentStatus @default(UNPAID)
   currency           String        @default("BDT") @db.VarChar(3)

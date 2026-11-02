@@ -86,7 +86,7 @@ export interface OrderPaymentRow {
 export interface OrderBaseResponse {
   id: string;
   orderNumber: string;
-  customer: OrderCustomerSummary;
+  customer: OrderCustomerSummary | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
   currency: string;

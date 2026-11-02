@@ -3,7 +3,9 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsBoolean,
   IsInt,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -12,6 +14,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import {
@@ -46,9 +49,49 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
+  /**
+   * Existing customer to attach the order to. When omitted, the order is a
+   * walk-in/guest order and `guestName` becomes required.
+   */
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsOptional()
   @IsUUID()
-  customerId!: string;
+  customerId?: string;
+
+  @ValidateIf((dto: CreateOrderDto) => dto.customerId === undefined)
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(CUSTOMER_NAME_MAX_LENGTH)
+  guestName?: string;
+
+  /**
+   * Guest phone. Optional in general, but required when `saveCustomer` is
+   * set because a saved customer must have one (enforced in the service).
+   */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value !== 'string') {
+      return value;
+    }
+
+    const trimmed = value.trim();
+    return trimmed === '' ? null : normalizePhone(trimmed);
+  })
+  @IsString()
+  @Matches(PHONE_PATTERN, { message: PHONE_INVALID_MESSAGE })
+  guestPhone?: string | null;
+
+  /**
+   * Walk-in orders only: also persist the guest details as a customer so
+   * they show up in the customers list and future orders.
+   */
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value === 'true' : value,
+  )
+  @IsBoolean()
+  saveCustomer?: boolean;
 
   @IsArray()
   @ArrayNotEmpty()

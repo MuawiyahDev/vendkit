@@ -58,7 +58,9 @@ export class OrdersService {
   constructor(private readonly prisma: PrismaService) {}
 
   async create(dto: CreateOrderDto): Promise<OrderResponse> {
-    await this.ensureCustomerExists(dto.customerId);
+    if (dto.customerId !== undefined) {
+      await this.ensureCustomerExists(dto.customerId);
+    }
 
     const quantities = mergeItemQuantities(dto.items);
     const productIds = [...quantities.keys()];
@@ -150,25 +152,45 @@ export class OrdersService {
             }
           }
 
-          const customer = await tx.customer.findUnique({
-            where: { id: dto.customerId },
-            select: {
-              name: true,
-              phone: true,
-              address: true,
-              city: true,
-              postalCode: true,
-            },
-          });
+          const customerId = dto.customerId ?? null;
 
-          if (!customer) {
-            throw new NotFoundException('Customer not found');
+          let shippingDefaults: {
+            name: string | null;
+            phone: string | null;
+            address: string | null;
+            city: string | null;
+            postalCode: string | null;
+          } = {
+            name: null,
+            phone: null,
+            address: null,
+            city: null,
+            postalCode: null,
+          };
+
+          if (customerId !== null) {
+            const customer = await tx.customer.findUnique({
+              where: { id: customerId },
+              select: {
+                name: true,
+                phone: true,
+                address: true,
+                city: true,
+                postalCode: true,
+              },
+            });
+
+            if (!customer) {
+              throw new NotFoundException('Customer not found');
+            }
+
+            shippingDefaults = customer;
           }
 
           return tx.order.create({
             data: {
               orderNumber,
-              customerId: dto.customerId,
+              customerId,
               status: OrderStatus.PENDING,
               paymentStatus: PaymentStatus.UNPAID,
               currency: DEFAULT_CURRENCY,
@@ -179,12 +201,13 @@ export class OrdersService {
               totalAmount,
               amountPaid: new Prisma.Decimal(0),
               stockDeducted: true,
-              shippingName: dto.shippingName ?? customer.name,
-              shippingPhone: dto.shippingPhone ?? customer.phone,
-              shippingAddress: dto.shippingAddress ?? customer.address,
-              shippingCity: dto.shippingCity ?? customer.city,
+              shippingName: dto.shippingName ?? shippingDefaults.name,
+              shippingPhone: dto.shippingPhone ?? shippingDefaults.phone,
+              shippingAddress:
+                dto.shippingAddress ?? shippingDefaults.address,
+              shippingCity: dto.shippingCity ?? shippingDefaults.city,
               shippingPostalCode:
-                dto.shippingPostalCode ?? customer.postalCode,
+                dto.shippingPostalCode ?? shippingDefaults.postalCode,
               customerNote: dto.customerNote ?? null,
               internalNote: dto.internalNote ?? null,
               items: {
@@ -334,7 +357,11 @@ export class OrdersService {
   async update(id: string, dto: UpdateOrderDto): Promise<OrderResponse> {
     const existing = await this.prisma.client.order.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: {
+        id: true,
+        status: true,
+        customerId: true,
+      },
     });
 
     if (!existing) {
@@ -348,8 +375,12 @@ export class OrdersService {
     const data: Prisma.OrderUpdateInput = {};
 
     if (dto.customerId !== undefined) {
-      await this.ensureCustomerExists(dto.customerId);
-      data.customer = { connect: { id: dto.customerId } };
+      if (dto.customerId) {
+        await this.ensureCustomerExists(dto.customerId);
+        data.customer = { connect: { id: dto.customerId } };
+      } else {
+        data.customer = { disconnect: true };
+      }
     }
 
     if (dto.shippingName !== undefined) {

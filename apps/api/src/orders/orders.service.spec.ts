@@ -65,6 +65,8 @@ const orderFixture = (overrides: Partial<Order> = {}): Order => ({
   id: '3f1d2c9a-0000-4000-8000-000000000030',
   orderNumber: 'ORD-20261018-ABC123',
   customerId: customerFixture.id,
+
+
   status: OrderStatus.PENDING,
   paymentStatus: PaymentStatus.UNPAID,
   currency: 'BDT',
@@ -172,7 +174,6 @@ describe('OrdersService', () => {
       findUnique: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
-      create: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
       delete: vi.fn(),
@@ -186,7 +187,6 @@ describe('OrdersService', () => {
       findFirst: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
-      create: vi.fn(),
       update: vi.fn(),
       deleteMany: vi.fn(),
       aggregate: vi.fn(),
@@ -469,6 +469,98 @@ describe('OrdersService', () => {
       prismaMock.client.$transaction.mockRejectedValue(dbError);
 
       await expect(service.create(createDto)).rejects.toBe(dbError);
+    });
+
+    it('creates a walk-in order with guest details and no customer', async () => {
+      await service.create({
+        items: createDto.items,
+        guestName: 'Walk-in Buyer',
+        guestPhone: '+8801700000001',
+      });
+
+      expect(prismaMock.client.customer.findUnique).not.toHaveBeenCalled();
+      expect(txMock.customer.findUnique).not.toHaveBeenCalled();
+      expect(txMock.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            customerId: null,
+            guestName: 'Walk-in Buyer',
+            guestPhone: '+8801700000001',
+          }),
+        }),
+      );
+    });
+
+    it('falls back to guest details for the shipping snapshot', async () => {
+      await service.create({
+        items: createDto.items,
+        guestName: 'Walk-in Buyer',
+      });
+
+      expect(txMock.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            shippingName: 'Walk-in Buyer',
+            shippingPhone: null,
+          }),
+        }),
+      );
+    });
+
+    it('rejects a walk-in order without a guest name', async () => {
+      await expect(
+        service.create({ items: createDto.items, guestPhone: '+8801700000001' }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.client.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('saves the guest as a customer when saveCustomer is set', async () => {
+      txMock.customer.create.mockResolvedValue({
+        id: '3f1d2c9a-0000-4000-8000-000000000099',
+        name: 'Walk-in Buyer',
+        phone: '+8801700000001',
+        address: null,
+        city: null,
+        postalCode: null,
+      });
+
+      await service.create({
+        items: createDto.items,
+        guestName: 'Walk-in Buyer',
+        guestPhone: '+8801700000001',
+        saveCustomer: true,
+      });
+
+      expect(txMock.customer.create).toHaveBeenCalledWith({
+        data: { name: 'Walk-in Buyer', phone: '+8801700000001' },
+      });
+      expect(txMock.order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            customerId: '3f1d2c9a-0000-4000-8000-000000000099',
+          
+          
+          }),
+        }),
+      );
+    });
+
+    it('requires a phone number when saveCustomer is set', async () => {
+      await expect(
+        service.create({
+          items: createDto.items,
+          guestName: 'Walk-in Buyer',
+          saveCustomer: true,
+        }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.client.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects saveCustomer together with an existing customerId', async () => {
+      await expect(
+        service.create({ ...createDto, saveCustomer: true }),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(prismaMock.client.$transaction).not.toHaveBeenCalled();
     });
   });
 
