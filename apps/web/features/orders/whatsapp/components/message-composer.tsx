@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import { WHATSAPP_MESSAGE_MAX_LENGTH } from "../whatsapp.constants";
 import type { WhatsAppTemplate, WhatsAppTemplateId } from "../whatsapp.types";
+import { WhatsAppMessagePreview } from "./whatsapp-message-preview";
 
 const MESSAGE_ID = "whatsapp-message";
 const COPY_ERROR_ID = "whatsapp-copy-error";
@@ -114,7 +115,7 @@ export function MessageComposer({
           aria-describedby={copyError ? COPY_ERROR_ID : undefined}
         />
         <div className="text-muted-foreground flex items-center justify-between gap-3 text-xs">
-          <span>You can edit the message freely.</span>
+          <span>Basic formatting like *bold* and _italic_ is supported.</span>
           <span className="tabular-nums">
             {message.length}/{WHATSAPP_MESSAGE_MAX_LENGTH}
           </span>
@@ -130,14 +131,13 @@ export function MessageComposer({
           <p className="text-muted-foreground mb-1.5 text-[0.6875rem]">
             {recipientLabel}
           </p>
-          <p
-            className={cn(
-              "text-sm leading-relaxed whitespace-pre-wrap break-words",
-              hasMessage ? "text-foreground" : "text-muted-foreground",
-            )}
-          >
-            {hasMessage ? message : "Your message will appear here."}
-          </p>
+          {hasMessage ? (
+            <WhatsAppMessagePreview message={message} />
+          ) : (
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Your message will appear here.
+            </p>
+          )}
         </div>
       </div>
     </section>
