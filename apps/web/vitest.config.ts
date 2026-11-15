@@ -10,6 +10,6 @@ export default defineConfig({
   },
   test: {
     environment: "node",
-    include: ["features/**/*.spec.ts"],
+    include: ["features/**/*.spec.ts", "lib/**/*.spec.ts"],
   },
 });
