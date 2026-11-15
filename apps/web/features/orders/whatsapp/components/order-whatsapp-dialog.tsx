@@ -55,7 +55,6 @@ export function OrderWhatsAppDialog({
 }: OrderWhatsAppDialogProps) {
   const [selection, setSelection] =
     useState<WhatsAppRecipientSelection>("custom");
-  const [customCountry, setCustomCountry] = useState(defaultCountry);
   const [customPhone, setCustomPhone] = useState("");
   const [message, setMessage] = useState("");
   const [copied, setCopied] = useState(false);
@@ -68,8 +67,8 @@ export function OrderWhatsAppDialog({
   );
 
   const customResult = useMemo(
-    () => parseWhatsAppPhone(customPhone, customCountry || defaultCountry),
-    [customPhone, customCountry, defaultCountry],
+    () => parseWhatsAppPhone(customPhone),
+    [customPhone],
   );
 
   const templates = useMemo(
@@ -103,10 +102,6 @@ export function OrderWhatsAppDialog({
     const templateId = getDefaultWhatsAppTemplateId(order);
 
     setSelection(firstValid?.id ?? "custom");
-    setCustomCountry(
-      defaultCountry ||
-        (firstValid?.result.ok ? (firstValid.result.phone.country ?? "") : ""),
-    );
     setCustomPhone("");
     setMessage(renderWhatsAppTemplate(templateId, order));
     setCopied(false);
@@ -198,8 +193,7 @@ export function OrderWhatsAppDialog({
             savedRecipients={savedRecipients}
             selection={selection}
             onSelectionChange={setSelection}
-            customCountry={customCountry || defaultCountry}
-            onCustomCountryChange={setCustomCountry}
+            defaultCountry={defaultCountry}
             customPhone={customPhone}
             onCustomPhoneChange={setCustomPhone}
             customResult={customResult}

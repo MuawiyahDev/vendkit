@@ -1,8 +1,6 @@
-import {
-  isSupportedCountry,
-  parsePhoneNumberFromString,
-  type CountryCode,
-} from "libphonenumber-js";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
+import { guessBrowserCountry, toSupportedCountry } from "@/lib/phone";
 
 import type {
   WhatsAppOrder,
@@ -11,51 +9,11 @@ import type {
   WhatsAppSavedRecipient,
 } from "./whatsapp.types";
 
+export { guessBrowserCountry, toSupportedCountry };
+
 const NON_DIGITS = /\D/g;
 const INTERNATIONAL_DIALING_PREFIX = "00";
 const WHATSAPP_URL = "https://wa.me";
-
-/**
- * Returns a supported ISO region for a raw value, or `undefined` when the
- * value is missing or not recognised by libphonenumber.
- */
-export function toSupportedCountry(
-  value: string | null | undefined,
-): CountryCode | undefined {
-  if (!value) {
-    return undefined;
-  }
-
-  const normalized = value.trim().toUpperCase();
-  return isSupportedCountry(normalized) ? normalized : undefined;
-}
-
-/**
- * Uses the browser locale as a sensible fallback before regional settings
- * have loaded (or when they cannot be fetched).
- */
-export function guessBrowserCountry(): CountryCode | undefined {
-  if (typeof navigator === "undefined") {
-    return undefined;
-  }
-
-  const locales = [...(navigator.languages ?? []), navigator.language].filter(
-    Boolean,
-  );
-
-  for (const locale of locales) {
-    try {
-      const region = new Intl.Locale(locale).region;
-      if (region && isSupportedCountry(region)) {
-        return region;
-      }
-    } catch {
-      // Ignore malformed or unsupported browser locales.
-    }
-  }
-
-  return undefined;
-}
 
 /**
  * Strips spaces, brackets, hyphens and dots while preserving an

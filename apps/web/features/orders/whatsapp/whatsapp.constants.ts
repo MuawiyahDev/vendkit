@@ -1,34 +1,3 @@
-import { getCountries, getCountryCallingCode } from "libphonenumber-js";
-
-export interface WhatsAppCountryOption {
-  value: string;
-  label: string;
-  description?: string;
-}
-
-const regionNames = (() => {
-  try {
-    return new Intl.DisplayNames(["en"], { type: "region" });
-  } catch {
-    return null;
-  }
-})();
-
-/**
- * Every region libphonenumber knows about, paired with its calling code.
- * Built once so the country picker opens instantly.
- */
-export const WHATSAPP_COUNTRY_OPTIONS: WhatsAppCountryOption[] = getCountries()
-  .map((country) => {
-    const name = regionNames?.of(country) ?? country;
-    return {
-      value: country,
-      label: `${name} (+${getCountryCallingCode(country)})`,
-      description: country,
-    };
-  })
-  .sort((left, right) => left.label.localeCompare(right.label));
-
 export const WHATSAPP_MESSAGE_MAX_LENGTH = 4000;
 
 export const WHATSAPP_ICON_COLOR_CLASS = "text-[#128C7E] dark:text-[#25D366]";

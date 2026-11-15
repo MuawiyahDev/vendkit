@@ -3,18 +3,17 @@
 import type { ReactNode } from "react";
 
 import { FieldError } from "@/components/shared/field-error";
-import { SearchableSelect } from "@/components/shared/searchable-select";
-import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { toSupportedCountry } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
-import { WHATSAPP_COUNTRY_OPTIONS } from "../whatsapp.constants";
 import type {
   WhatsAppPhoneResult,
   WhatsAppRecipientSelection,
   WhatsAppSavedRecipient,
 } from "../whatsapp.types";
 
-const COUNTRY_SELECT_ID = "whatsapp-custom-country";
 const CUSTOM_PHONE_ID = "whatsapp-custom-phone";
 const CUSTOM_PHONE_HINT_ID = "whatsapp-custom-phone-hint";
 const CUSTOM_PHONE_ERROR_ID = "whatsapp-custom-phone-error";
@@ -42,6 +41,11 @@ function RecipientOption({
     <label
       htmlFor={inputId}
       aria-disabled={disabled}
+      onClick={() => {
+        if (!disabled) {
+          onSelect();
+        }
+      }}
       className={cn(
         "focus-within:ring-ring/40 flex gap-3 rounded-lg border p-3 transition-[color,background-color,border-color,box-shadow] focus-within:ring-[3px]",
         disabled
@@ -104,8 +108,7 @@ interface RecipientSelectorProps {
   savedRecipients: WhatsAppSavedRecipient[];
   selection: WhatsAppRecipientSelection;
   onSelectionChange: (selection: WhatsAppRecipientSelection) => void;
-  customCountry: string;
-  onCustomCountryChange: (country: string) => void;
+  defaultCountry: string;
   customPhone: string;
   onCustomPhoneChange: (phone: string) => void;
   customResult: WhatsAppPhoneResult;
@@ -115,8 +118,7 @@ export function RecipientSelector({
   savedRecipients,
   selection,
   onSelectionChange,
-  customCountry,
-  onCustomCountryChange,
+  defaultCountry,
   customPhone,
   onCustomPhoneChange,
   customResult,
@@ -206,34 +208,23 @@ export function RecipientSelector({
 
       {isCustom ? (
         <div className="ml-7 flex flex-col gap-2">
-          <div className="grid gap-2 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)]">
-            <SearchableSelect
-              id={COUNTRY_SELECT_ID}
-              ariaLabel="Country calling code"
-              value={customCountry}
-              onValueChange={onCustomCountryChange}
-              options={WHATSAPP_COUNTRY_OPTIONS}
-              placeholder="Select country"
-              searchPlaceholder="Search countries…"
-              emptyMessage="No matching country."
-            />
-            <Input
-              id={CUSTOM_PHONE_ID}
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="e.g. 1712 345678"
-              value={customPhone}
-              onChange={(event) => onCustomPhoneChange(event.target.value)}
-              aria-label="Alternative WhatsApp number"
-              aria-invalid={Boolean(customError)}
-              aria-describedby={
-                customError
-                  ? `${CUSTOM_PHONE_HINT_ID} ${CUSTOM_PHONE_ERROR_ID}`
-                  : CUSTOM_PHONE_HINT_ID
-              }
-            />
-          </div>
+          <Label htmlFor={CUSTOM_PHONE_ID}>Phone number</Label>
+          <PhoneInput
+            id={CUSTOM_PHONE_ID}
+            className="w-full"
+            value={customPhone || undefined}
+            onChange={(value) => onCustomPhoneChange(value ?? "")}
+            defaultCountry={toSupportedCountry(defaultCountry)}
+            autoComplete="tel"
+            placeholder="Phone number"
+            aria-label="Alternative WhatsApp number"
+            aria-invalid={Boolean(customError)}
+            aria-describedby={
+              customError
+                ? `${CUSTOM_PHONE_HINT_ID} ${CUSTOM_PHONE_ERROR_ID}`
+                : CUSTOM_PHONE_HINT_ID
+            }
+          />
 
           <p
             id={CUSTOM_PHONE_HINT_ID}
@@ -241,7 +232,7 @@ export function RecipientSelector({
           >
             {customResult.ok
               ? `Will open WhatsApp for ${customResult.phone.formatted}.`
-              : "Enter the number with its area code. International numbers starting with + are also accepted."}
+              : "Choose a country and enter the number, or type an international number starting with +."}
           </p>
           <FieldError
             id={CUSTOM_PHONE_ERROR_ID}
