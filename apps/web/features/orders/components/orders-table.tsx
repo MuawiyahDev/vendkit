@@ -20,6 +20,7 @@ import {
   orderCustomerName,
   orderCustomerPhone,
 } from "../utils/orders.utils";
+import { canMessageOrderOnWhatsApp } from "../whatsapp/whatsapp.utils";
 import { OrderRowActions } from "./order-row-actions";
 import { OrderStatusBadge, PaymentStatusBadge } from "./order-status-badge";
 
@@ -27,6 +28,7 @@ const columnHelper = createColumnHelper<DataTableFeatures, OrderSummary>();
 
 interface OrdersTableProps {
   orders: OrderSummary[];
+  defaultCountry: string;
   sortBy: OrderSortField;
   sortOrder: SortOrder;
   onSortChange: (sort: {
@@ -34,14 +36,17 @@ interface OrdersTableProps {
     sortOrder: SortOrder;
   }) => void;
   onDelete: (order: OrderSummary) => void;
+  onWhatsApp: (order: OrderSummary) => void;
 }
 
 export function OrdersTable({
   orders,
+  defaultCountry,
   sortBy,
   sortOrder,
   onSortChange,
   onDelete,
+  onWhatsApp,
 }: OrdersTableProps) {
   const columns = columnHelper.columns([
     columnHelper.accessor("orderNumber", {
@@ -130,9 +135,16 @@ export function OrdersTable({
     }),
     columnHelper.display({
       id: "actions",
-      meta: { className: "w-[64px] text-right" },
+      meta: { className: "w-[88px] text-right" },
       header: () => <span className="sr-only">Actions</span>,
-      cell: ({ row }) => <OrderRowActions order={row.original} onDelete={onDelete} />,
+      cell: ({ row }) => (
+        <OrderRowActions
+          order={row.original}
+          onDelete={onDelete}
+          canMessage={canMessageOrderOnWhatsApp(row.original, defaultCountry)}
+          onMessage={() => onWhatsApp(row.original)}
+        />
+      ),
     }),
   ]);
 
@@ -164,17 +176,26 @@ export function OrdersTable({
         />
       </div>
 
-      <OrdersMobileList orders={orders} onDelete={onDelete} />
+      <OrdersMobileList
+        orders={orders}
+        defaultCountry={defaultCountry}
+        onDelete={onDelete}
+        onWhatsApp={onWhatsApp}
+      />
     </>
   );
 }
 
 function OrdersMobileList({
   orders,
+  defaultCountry,
   onDelete,
+  onWhatsApp,
 }: {
   orders: OrderSummary[];
+  defaultCountry: string;
   onDelete: (order: OrderSummary) => void;
+  onWhatsApp: (order: OrderSummary) => void;
 }) {
   return (
     <ul aria-label="Orders" className="divide-border-subtle divide-y md:hidden">
@@ -192,7 +213,12 @@ function OrdersMobileList({
               >
                 {order.orderNumber}
               </Link>
-              <OrderRowActions order={order} onDelete={onDelete} />
+              <OrderRowActions
+                order={order}
+                onDelete={onDelete}
+                canMessage={canMessageOrderOnWhatsApp(order, defaultCountry)}
+                onMessage={() => onWhatsApp(order)}
+              />
             </div>
 
             <Link

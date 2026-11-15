@@ -16,6 +16,7 @@ import { useCallback, useState } from "react";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/shared/breadcrumb";
 import { EmptyState } from "@/components/shared/empty-state";
 import { SuccessAlert } from "@/components/shared/success-alert";
+import { WhatsAppIcon } from "@/components/shared/whatsapp-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,6 +30,9 @@ import type {
 } from "../api/orders-api";
 import { updateOrderPaymentStatus } from "../api/orders-api";
 import { useOrder } from "../hooks/use-order";
+import { OrderWhatsAppDialog } from "../whatsapp/components/order-whatsapp-dialog";
+import { useWhatsAppDefaultCountry } from "../whatsapp/hooks/use-whatsapp-default-country";
+import { WHATSAPP_ICON_COLOR_CLASS } from "../whatsapp/whatsapp.constants";
 import { OrderCancelDialog } from "./order-cancel-dialog";
 import { OrderCustomerCard } from "./order-customer-card";
 import { OrderDeleteDialog } from "./order-delete-dialog";
@@ -105,9 +109,11 @@ export function OrderDetailsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { view, order, refresh } = useOrder(id);
+  const whatsAppDefaultCountry = useWhatsAppDefaultCountry();
 
   const [statusDialogTarget, setStatusDialogTarget] =
     useState<OrderStatus | null>(null);
+  const [isWhatsAppOpen, setIsWhatsAppOpen] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -297,6 +303,14 @@ export function OrderDetailsPage() {
                 Mark as {formatStatusLabel(nextStatus)}
               </Button>
             ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsWhatsAppOpen(true)}
+            >
+              <WhatsAppIcon className={WHATSAPP_ICON_COLOR_CLASS} />
+              WhatsApp Customer
+            </Button>
             <DownloadInvoiceButton
               orderId={order.id}
               orderNumber={order.orderNumber}
@@ -386,6 +400,13 @@ export function OrderDetailsPage() {
         open={isPaymentOpen}
         onOpenChange={setIsPaymentOpen}
         onSuccess={handlePaymentSuccess}
+      />
+
+      <OrderWhatsAppDialog
+        order={order}
+        open={isWhatsAppOpen}
+        onOpenChange={setIsWhatsAppOpen}
+        defaultCountry={whatsAppDefaultCountry}
       />
     </div>
   );

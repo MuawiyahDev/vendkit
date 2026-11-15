@@ -20,7 +20,7 @@ export function OrdersTableSkeleton() {
             <TableHead>Status</TableHead>
             <TableHead className="hidden sm:table-cell">Payment</TableHead>
             <TableHead className="text-right">Total</TableHead>
-            <TableHead className="w-[64px]">
+            <TableHead className="w-[88px]">
               <span className="sr-only">Actions</span>
             </TableHead>
           </TableRow>

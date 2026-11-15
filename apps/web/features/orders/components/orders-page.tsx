@@ -15,6 +15,8 @@ import { Card } from "@/components/ui/card";
 
 import type { OrderSummary } from "../api/orders-api";
 import { useOrders } from "../hooks/use-orders";
+import { useWhatsAppDefaultCountry } from "../whatsapp/hooks/use-whatsapp-default-country";
+import { OrderWhatsAppDialog } from "../whatsapp/components/order-whatsapp-dialog";
 import { OrderDeleteDialog } from "./order-delete-dialog";
 import { OrdersTable } from "./orders-table";
 import { OrdersTableSkeleton } from "./orders-table-skeleton";
@@ -54,6 +56,10 @@ export function OrdersPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<OrderSummary | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [whatsAppTarget, setWhatsAppTarget] = useState<OrderSummary | null>(
+    null,
+  );
+  const whatsAppDefaultCountry = useWhatsAppDefaultCountry();
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [dismissedNotice, setDismissedNotice] = useState<string | null>(null);
 
@@ -186,6 +192,7 @@ export function OrdersPage() {
         ) : (
           <OrdersTable
             orders={orders}
+            defaultCountry={whatsAppDefaultCountry}
             sortBy={sortBy}
             sortOrder={sortOrder}
             onSortChange={setSort}
@@ -193,6 +200,7 @@ export function OrdersPage() {
               setDeleteTarget(order);
               setDeleteDialogOpen(true);
             }}
+            onWhatsApp={setWhatsAppTarget}
           />
         )}
 
@@ -218,6 +226,17 @@ export function OrdersPage() {
           }
         }}
         onSuccess={handleDeleteSuccess}
+      />
+
+      <OrderWhatsAppDialog
+        order={whatsAppTarget}
+        open={whatsAppTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setWhatsAppTarget(null);
+          }
+        }}
+        defaultCountry={whatsAppDefaultCountry}
       />
     </div>
   );
