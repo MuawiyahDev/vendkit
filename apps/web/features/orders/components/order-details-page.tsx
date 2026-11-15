@@ -19,6 +19,7 @@ import { SuccessAlert } from "@/components/shared/success-alert";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DownloadInvoiceButton } from "@/features/invoices/components/download-invoice-button";
 
 import type {
   Order,
@@ -296,6 +297,10 @@ export function OrderDetailsPage() {
                 Mark as {formatStatusLabel(nextStatus)}
               </Button>
             ) : null}
+            <DownloadInvoiceButton
+              orderId={order.id}
+              orderNumber={order.orderNumber}
+            />
             {editable ? (
               <Button type="button" variant="outline" asChild>
                 <Link href={`/orders/${order.id}/edit`}>
