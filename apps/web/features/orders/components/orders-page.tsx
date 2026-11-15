@@ -13,8 +13,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-import type { OrderSummary } from "../api/orders-api";
-import { useOrders } from "../hooks/use-orders";
+import { ORDER_STATUSES, type OrderSummary } from "../api/orders-api";
+import { useOrders, type OrderStatusFilter } from "../hooks/use-orders";
 import { useWhatsAppDefaultCountry } from "../whatsapp/hooks/use-whatsapp-default-country";
 import { OrderWhatsAppDialog } from "../whatsapp/components/order-whatsapp-dialog";
 import { OrderDeleteDialog } from "./order-delete-dialog";
@@ -31,6 +31,14 @@ export function OrdersPage() {
   // One-shot success notice left in the URL by the editor pages (e.g.
   // after creating or deleting an order); dismissed notices never replay.
   const notice = searchParams.get(NOTICE_PARAM);
+  // The dashboard links to status-filtered orders. Only an explicit,
+  // supported status is accepted so a hand-edited URL cannot break the list.
+  const statusParam = searchParams.get("status");
+  const initialStatusFilter =
+    statusParam !== null &&
+    (ORDER_STATUSES as readonly string[]).includes(statusParam)
+      ? (statusParam as OrderStatusFilter)
+      : "all";
   const {
     view,
     isFetching,
@@ -52,7 +60,7 @@ export function OrdersPage() {
     setPageSize,
     refresh,
     clearFilters,
-  } = useOrders();
+  } = useOrders(initialStatusFilter);
 
   const [deleteTarget, setDeleteTarget] = useState<OrderSummary | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

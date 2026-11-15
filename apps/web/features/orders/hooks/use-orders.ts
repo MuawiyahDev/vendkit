@@ -50,16 +50,19 @@ function toPaymentStatusFilter(
  * filters, sorting, pagination) and keeps responses ordered so stale
  * requests never overwrite newer results.
  */
-export function useOrders() {
+export function useOrders(
+  initialStatusFilter: OrderStatusFilter = "all",
+  initialPaymentStatusFilter: PaymentStatusFilter = "all",
+) {
   const [searchInput, setSearchInput] = useState("");
   const debouncedSearch = useDebouncedValue(
     searchInput.trim(),
     SEARCH_DEBOUNCE_MS,
   );
   const [statusFilter, setStatusFilterState] =
-    useState<OrderStatusFilter>("all");
+    useState<OrderStatusFilter>(initialStatusFilter);
   const [paymentStatusFilter, setPaymentStatusFilterState] =
-    useState<PaymentStatusFilter>("all");
+    useState<PaymentStatusFilter>(initialPaymentStatusFilter);
   const [dateFrom, setDateFromState] = useState("");
   const [dateTo, setDateToState] = useState("");
   const [sortBy, setSortByState] = useState<OrderSortField>(
