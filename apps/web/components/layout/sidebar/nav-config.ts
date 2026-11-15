@@ -2,6 +2,7 @@ import {
   LayoutDashboard,
   Package,
   ReceiptText,
+  Settings,
   Shapes,
   Tags,
   Users,
@@ -37,6 +38,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: "Brands", href: "/brands", icon: Shapes },
       { title: "Customers", href: "/customers", icon: Users },
     ],
+  },
+  {
+    label: "Configuration",
+    items: [{ title: "Settings", href: "/settings", icon: Settings }],
   },
 ];
 

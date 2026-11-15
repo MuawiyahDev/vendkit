@@ -12,13 +12,19 @@ interface SessionState {
   user: SessionUser | null;
 }
 
-const SessionContext = React.createContext<SessionState | null>(null);
+interface SessionContextValue extends SessionState {
+  /** Re-reads the session so role or profile changes are picked up. */
+  refresh: () => void;
+}
+
+const SessionContext = React.createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<SessionState>({
     status: "loading",
     user: null,
   });
+  const [refreshNonce, setRefreshNonce] = React.useState(0);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -40,14 +46,23 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
+  }, [refreshNonce]);
+
+  const refresh = React.useCallback(() => {
+    setRefreshNonce((nonce) => nonce + 1);
   }, []);
 
+  const value = React.useMemo<SessionContextValue>(
+    () => ({ ...state, refresh }),
+    [state, refresh],
+  );
+
   return (
-    <SessionContext.Provider value={state}>{children}</SessionContext.Provider>
+    <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
   );
 }
 
-export function useSession(): SessionState {
+export function useSession(): SessionContextValue {
   const context = React.useContext(SessionContext);
   if (!context) {
     throw new Error("useSession must be used within a SessionProvider");
