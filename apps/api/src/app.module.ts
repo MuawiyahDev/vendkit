@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { BrandsModule } from './brands/brands.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { CustomersModule } from './customers/customers.module.js';
+import { DashboardModule } from './dashboard/dashboard.module.js';
 import { ImagesModule } from './images/images.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
@@ -31,6 +32,7 @@ import { UsersModule } from './users/users.module.js';
     ProductsModule,
     CustomersModule,
     OrdersModule,
+    DashboardModule,
     SettingsModule,
   ],
   controllers: [AppController],
