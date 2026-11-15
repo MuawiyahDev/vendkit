@@ -50,6 +50,7 @@ export function SettingsCategoryView({ category }: SettingsCategoryViewProps) {
       {category === "business-profile" ? (
         <BusinessProfileForm
           settings={data.businessProfile}
+          regional={data.regional}
           readOnly={!canEdit}
           onSaved={(settings) => updateCategory("business-profile", settings)}
         />

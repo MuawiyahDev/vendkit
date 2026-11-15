@@ -2,11 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import { useDefaultPhoneCountry } from "@/hooks/use-default-phone-country";
+import { toPhoneInputValue } from "@/lib/phone";
 import { SettingsField } from "../components/settings-field";
 import { SettingsFormActions } from "../components/settings-form-actions";
 import { SettingsFormFeedback } from "../components/settings-form-feedback";
@@ -22,22 +25,28 @@ import {
   type BusinessProfileFormPayload,
   type BusinessProfileFormValues,
 } from "../schemas/business-profile.schema";
-import type { BusinessProfileSettings } from "../settings.types";
+import type {
+  BusinessProfileSettings,
+  RegionalSettings,
+} from "../settings.types";
 
 const FORM_ID = "settings-business-profile-form";
 
 interface BusinessProfileFormProps {
   settings: BusinessProfileSettings;
+  regional: RegionalSettings;
   readOnly: boolean;
   onSaved: (settings: BusinessProfileSettings) => void;
 }
 
 export function BusinessProfileForm({
   settings,
+  regional,
   readOnly,
   onSaved,
 }: BusinessProfileFormProps) {
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const defaultCountry = useDefaultPhoneCountry(regional.defaultCountry);
   const mutation = useSettingsMutation<"business-profile">({
     category: "business-profile",
     onSaved,
@@ -180,17 +189,26 @@ export function BusinessProfileForm({
                   optional
                   error={errors.phone?.message}
                 >
-                  <Input
-                    id="business-phone"
-                    type="tel"
-                    placeholder="+880 1712 345678"
-                    autoComplete="tel"
-                    maxLength={30}
-                    aria-invalid={Boolean(errors.phone)}
-                    aria-describedby={
-                      errors.phone ? "business-phone-error" : undefined
-                    }
-                    {...register("phone")}
+                  <Controller
+                    control={control}
+                    name="phone"
+                    render={({ field }) => (
+                      <PhoneInput
+                        id="business-phone"
+                        name={field.name}
+                        value={toPhoneInputValue(field.value, defaultCountry)}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        defaultCountry={defaultCountry}
+                        placeholder="Phone number"
+                        autoComplete="tel"
+                        disabled={readOnly}
+                        aria-invalid={Boolean(errors.phone)}
+                        aria-describedby={
+                          errors.phone ? "business-phone-error" : undefined
+                        }
+                      />
+                    )}
                   />
                 </SettingsField>
 
@@ -200,18 +218,28 @@ export function BusinessProfileForm({
                   optional
                   error={errors.alternativePhone?.message}
                 >
-                  <Input
-                    id="business-alternative-phone"
-                    type="tel"
-                    placeholder="Another contact number"
-                    maxLength={30}
-                    aria-invalid={Boolean(errors.alternativePhone)}
-                    aria-describedby={
-                      errors.alternativePhone
-                        ? "business-alternative-phone-error"
-                        : undefined
-                    }
-                    {...register("alternativePhone")}
+                  <Controller
+                    control={control}
+                    name="alternativePhone"
+                    render={({ field }) => (
+                      <PhoneInput
+                        id="business-alternative-phone"
+                        name={field.name}
+                        value={toPhoneInputValue(field.value, defaultCountry)}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        defaultCountry={defaultCountry}
+                        placeholder="Another contact number"
+                        autoComplete="tel"
+                        disabled={readOnly}
+                        aria-invalid={Boolean(errors.alternativePhone)}
+                        aria-describedby={
+                          errors.alternativePhone
+                            ? "business-alternative-phone-error"
+                            : undefined
+                        }
+                      />
+                    )}
                   />
                 </SettingsField>
 

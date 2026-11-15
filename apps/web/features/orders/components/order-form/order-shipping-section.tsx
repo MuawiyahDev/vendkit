@@ -1,11 +1,15 @@
 "use client";
 
+import type { ReactNode } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
 
 import { FieldError } from "@/components/shared/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import { useDefaultPhoneCountry } from "@/hooks/use-default-phone-country";
+import { toPhoneInputValue } from "@/lib/phone";
 
 import type { OrderShippingFieldName } from "./order-form.types";
 
@@ -13,12 +17,21 @@ interface OrderShippingSectionProps {
   register: (
     name: OrderShippingFieldName,
   ) => UseFormRegisterReturn;
+  /** Phone control rendered by the owning form through `Controller`. */
+  phoneField: ReactNode;
   shippingNameError?: string;
-  shippingPhoneError?: string;
   shippingAddressError?: string;
   shippingCityError?: string;
   shippingPostalCodeError?: string;
   isSubmitting: boolean;
+}
+
+interface OrderShippingPhoneFieldProps {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  error?: string;
+  disabled?: boolean;
 }
 
 const NAME_ERROR_ID = "order-form-shipping-name-error";
@@ -27,6 +40,34 @@ const ADDRESS_ERROR_ID = "order-form-shipping-address-error";
 const CITY_ERROR_ID = "order-form-shipping-city-error";
 const POSTAL_CODE_ERROR_ID = "order-form-shipping-postal-code-error";
 
+export function OrderShippingPhoneField({
+  value,
+  onChange,
+  onBlur,
+  error,
+  disabled,
+}: OrderShippingPhoneFieldProps) {
+  const defaultCountry = useDefaultPhoneCountry();
+
+  return (
+    <>
+      <PhoneInput
+        id="order-shipping-phone"
+        value={toPhoneInputValue(value, defaultCountry)}
+        onChange={onChange}
+        onBlur={onBlur}
+        defaultCountry={defaultCountry}
+        placeholder="Phone number"
+        autoComplete="shipping tel"
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? PHONE_ERROR_ID : undefined}
+        disabled={disabled}
+      />
+      <FieldError id={PHONE_ERROR_ID} message={error} />
+    </>
+  );
+}
+
 /**
  * Shipping destination for the order. Prefilled from the selected customer
  * when one is picked; leaving the fields empty also falls back to the
@@ -34,8 +75,8 @@ const POSTAL_CODE_ERROR_ID = "order-form-shipping-postal-code-error";
  */
 export function OrderShippingSection({
   register,
+  phoneField,
   shippingNameError,
-  shippingPhoneError,
   shippingAddressError,
   shippingCityError,
   shippingPostalCodeError,
@@ -72,19 +113,7 @@ export function OrderShippingSection({
               (optional)
             </span>
           </Label>
-          <Input
-            id="order-shipping-phone"
-            type="tel"
-            placeholder="+880 17 1234 5678"
-            autoComplete="shipping tel"
-            aria-invalid={Boolean(shippingPhoneError)}
-            aria-describedby={
-              shippingPhoneError ? PHONE_ERROR_ID : undefined
-            }
-            disabled={isSubmitting}
-            {...register("shippingPhone")}
-          />
-          <FieldError id={PHONE_ERROR_ID} message={shippingPhoneError} />
+          {phoneField}
         </div>
       </div>
 

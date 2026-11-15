@@ -2,13 +2,16 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/shared/native-select";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import { useDefaultPhoneCountry } from "@/hooks/use-default-phone-country";
+import { toPhoneInputValue } from "@/lib/phone";
 import {
   CURRENCY_DISPLAY_OPTIONS,
   INVOICE_STATUS_OPTIONS,
@@ -56,6 +59,7 @@ export function InvoiceSettingsForm({
   onSaved,
 }: InvoiceSettingsFormProps) {
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const defaultCountry = useDefaultPhoneCountry(regional.defaultCountry);
   const mutation = useSettingsMutation<"invoice">({
     category: "invoice",
     onSaved,
@@ -288,16 +292,30 @@ export function InvoiceSettingsForm({
                           optional
                           error={errors.phone?.message}
                         >
-                          <Input
-                            id="invoice-phone"
-                            type="tel"
-                            placeholder="+880 1712 345678"
-                            maxLength={30}
-                            aria-invalid={Boolean(errors.phone)}
-                            aria-describedby={
-                              errors.phone ? "invoice-phone-error" : undefined
-                            }
-                            {...register("phone")}
+                          <Controller
+                            control={control}
+                            name="phone"
+                            render={({ field }) => (
+                              <PhoneInput
+                                id="invoice-phone"
+                                name={field.name}
+                                value={toPhoneInputValue(
+                                  field.value,
+                                  defaultCountry,
+                                )}
+                                onChange={field.onChange}
+                                onBlur={field.onBlur}
+                                defaultCountry={defaultCountry}
+                                placeholder="Phone number"
+                                disabled={readOnly}
+                                aria-invalid={Boolean(errors.phone)}
+                                aria-describedby={
+                                  errors.phone
+                                    ? "invoice-phone-error"
+                                    : undefined
+                                }
+                              />
+                            )}
                           />
                         </SettingsField>
                       </div>

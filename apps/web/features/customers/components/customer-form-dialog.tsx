@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, LoaderCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 
 import { FieldError } from "@/components/shared/field-error";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,8 +18,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import { useDefaultPhoneCountry } from "@/hooks/use-default-phone-country";
 import { ApiError } from "@/lib/api/client";
+import { toPhoneInputValue } from "@/lib/phone";
 
 import {
   createCustomer,
@@ -70,6 +73,7 @@ export function CustomerFormDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [prevOpen, setPrevOpen] = useState(open);
+  const defaultCountry = useDefaultPhoneCountry();
 
   // Reset transient state as soon as the dialog opens (render-time
   // adjustment so a previously mounted dialog never shows stale errors).
@@ -82,6 +86,7 @@ export function CustomerFormDialog({
   }
 
   const {
+    control,
     register,
     handleSubmit,
     reset,
@@ -227,17 +232,28 @@ export function CustomerFormDialog({
                       *
                     </span>
                   </Label>
-                  <Input
-                    id="customer-phone"
-                    type="tel"
-                    placeholder="+880 17 1234 5678"
-                    autoComplete="tel"
-                    required
-                    aria-required="true"
-                    aria-invalid={Boolean(errors.phone)}
-                    aria-describedby={errors.phone ? PHONE_ERROR_ID : undefined}
-                    disabled={isSubmitting}
-                    {...register("phone")}
+                  <Controller
+                    control={control}
+                    name="phone"
+                    render={({ field }) => (
+                      <PhoneInput
+                        id="customer-phone"
+                        name={field.name}
+                        value={toPhoneInputValue(field.value, defaultCountry)}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        defaultCountry={defaultCountry}
+                        placeholder="Phone number"
+                        autoComplete="tel"
+                        required
+                        aria-required="true"
+                        aria-invalid={Boolean(errors.phone)}
+                        aria-describedby={
+                          errors.phone ? PHONE_ERROR_ID : undefined
+                        }
+                        disabled={isSubmitting}
+                      />
+                    )}
                   />
                   <FieldError
                     id={PHONE_ERROR_ID}

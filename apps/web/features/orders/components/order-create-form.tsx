@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
@@ -29,7 +29,10 @@ import { OrderFormActions } from "./order-form/order-form-actions";
 import { OrderFormSection } from "./order-form/order-form-section";
 import { OrderItemsField } from "./order-form/order-items-field";
 import { OrderNotesSection } from "./order-form/order-notes-section";
-import { OrderShippingSection } from "./order-form/order-shipping-section";
+import {
+  OrderShippingPhoneField,
+  OrderShippingSection,
+} from "./order-form/order-shipping-section";
 import { OrderSummaryPanel } from "./order-form/order-summary-panel";
 import { ProductPickerDialog } from "./order-form/product-picker-dialog";
 
@@ -341,8 +344,22 @@ export function OrderCreateForm({ onCreated, onCancel }: OrderCreateFormProps) {
             >
               <OrderShippingSection
                 register={register}
-                                shippingNameError={errors.shippingName?.message}
-                shippingPhoneError={errors.shippingPhone?.message}
+                phoneField={
+                  <Controller
+                    control={control}
+                    name="shippingPhone"
+                    render={({ field }) => (
+                      <OrderShippingPhoneField
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        error={errors.shippingPhone?.message}
+                        disabled={isSubmitting}
+                      />
+                    )}
+                  />
+                }
+                shippingNameError={errors.shippingName?.message}
                 shippingAddressError={errors.shippingAddress?.message}
                 shippingCityError={errors.shippingCity?.message}
                 shippingPostalCodeError={errors.shippingPostalCode?.message}
