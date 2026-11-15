@@ -31,7 +31,7 @@ export function canTransitionPaymentStatus(
   return PAYMENT_STATUS_TRANSITIONS[from].includes(to);
 }
 
-export function generateOrderNumber(): string {
+export function generateOrderNumber(prefix = 'ORD'): string {
   const now = new Date();
   const year = now.getUTCFullYear().toString().padStart(4, '0');
   const month = (now.getUTCMonth() + 1).toString().padStart(2, '0');
@@ -42,7 +42,7 @@ export function generateOrderNumber(): string {
     suffix += ORDER_NUMBER_CHARS[randomInt(0, ORDER_NUMBER_CHARS.length)];
   }
 
-  return `ORD-${year}${month}${day}-${suffix}`;
+  return `${prefix}-${year}${month}${day}-${suffix}`;
 }
 
 export function mergeItemQuantities(

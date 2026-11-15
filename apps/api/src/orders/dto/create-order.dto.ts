@@ -35,6 +35,8 @@ export const MAX_ORDER_AMOUNT_DECIMAL_PLACES = 2;
 export const MAX_ORDER_ITEM_QUANTITY = 100000;
 export const MAX_ORDER_ITEM_LINES = 100;
 export const ORDER_NOTE_MAX_LENGTH = CUSTOMER_NOTES_MAX_LENGTH;
+export const ORDER_NUMBER_MAX_LENGTH = 50;
+export const ORDER_NUMBER_PATTERN = /^[A-Z0-9][A-Z0-9._/-]*$/;
 
 export class CreateOrderItemDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -92,6 +94,22 @@ export class CreateOrderDto {
   )
   @IsBoolean()
   saveCustomer?: boolean;
+
+  /**
+   * Only accepted when automatic order numbering is disabled in Settings.
+   * Automatic numbering rejects client-supplied order numbers.
+   */
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.trim().toUpperCase() : value,
+  )
+  @IsString()
+  @Matches(ORDER_NUMBER_PATTERN, {
+    message:
+      'orderNumber may contain letters, numbers, dots, underscores, slashes and hyphens',
+  })
+  @MaxLength(ORDER_NUMBER_MAX_LENGTH)
+  orderNumber?: string;
 
   @IsArray()
   @ArrayNotEmpty()

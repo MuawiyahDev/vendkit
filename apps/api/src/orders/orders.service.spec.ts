@@ -17,6 +17,7 @@ import {
   type Product,
 } from '@repo/database';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SettingsService } from '../settings/settings.service.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import type { CreateOrderPaymentDto } from './dto/create-order-payment.dto.js';
 import type { UpdateOrderDto } from './dto/update-order.dto.js';
@@ -171,6 +172,7 @@ describe('OrdersService', () => {
 
   const txMock = {
     order: {
+      create: vi.fn(),
       findUnique: vi.fn(),
       findMany: vi.fn(),
       count: vi.fn(),
@@ -183,6 +185,7 @@ describe('OrdersService', () => {
       deleteMany: vi.fn(),
     },
     orderPayment: {
+      create: vi.fn(),
       findUnique: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -197,6 +200,7 @@ describe('OrdersService', () => {
       update: vi.fn(),
     },
     customer: {
+      create: vi.fn(),
       findUnique: vi.fn(),
     },
   };
@@ -224,8 +228,27 @@ describe('OrdersService', () => {
     items: [{ productId: productFixture().id, quantity: 2 }],
   };
 
+  const settingsMock = {
+    getOrderRuntimeConfig: vi.fn(),
+    isPaymentMethodEnabled: vi.fn(),
+  };
+
   beforeEach(async () => {
     vi.clearAllMocks();
+
+    settingsMock.getOrderRuntimeConfig.mockResolvedValue({
+      currency: 'BDT',
+      orderNumberPrefix: 'ORD',
+      automaticNumbering: true,
+      defaultStatus: OrderStatus.PENDING,
+      defaultNotes: null,
+      allowEditing: true,
+      requireCustomerInformation: false,
+      shippingEnabled: true,
+      defaultShippingCharge: new Prisma.Decimal(0),
+      freeShippingThreshold: null,
+    });
+    settingsMock.isPaymentMethodEnabled.mockResolvedValue(true);
 
     prismaMock.client.$transaction.mockImplementation(
       async (fn: (tx: typeof txMock) => Promise<unknown>) => fn(txMock),
@@ -235,6 +258,7 @@ describe('OrdersService', () => {
       providers: [
         OrdersService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: SettingsService, useValue: settingsMock },
       ],
     }).compile();
 
@@ -471,7 +495,7 @@ describe('OrdersService', () => {
       await expect(service.create(createDto)).rejects.toBe(dbError);
     });
 
-    it('creates a walk-in order with guest details and no customer', async () => {
+    it('creates a walk-in order with no customer after guest snapshot fields were removed', async () => {
       await service.create({
         items: createDto.items,
         guestName: 'Walk-in Buyer',
@@ -484,83 +508,15 @@ describe('OrdersService', () => {
         expect.objectContaining({
           data: expect.objectContaining({
             customerId: null,
-            guestName: 'Walk-in Buyer',
-            guestPhone: '+8801700000001',
           }),
         }),
       );
-    });
 
-    it('falls back to guest details for the shipping snapshot', async () => {
-      await service.create({
-        items: createDto.items,
-        guestName: 'Walk-in Buyer',
-      });
-
-      expect(txMock.order.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            shippingName: 'Walk-in Buyer',
-            shippingPhone: null,
-          }),
-        }),
-      );
-    });
-
-    it('rejects a walk-in order without a guest name', async () => {
-      await expect(
-        service.create({ items: createDto.items, guestPhone: '+8801700000001' }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prismaMock.client.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('saves the guest as a customer when saveCustomer is set', async () => {
-      txMock.customer.create.mockResolvedValue({
-        id: '3f1d2c9a-0000-4000-8000-000000000099',
-        name: 'Walk-in Buyer',
-        phone: '+8801700000001',
-        address: null,
-        city: null,
-        postalCode: null,
-      });
-
-      await service.create({
-        items: createDto.items,
-        guestName: 'Walk-in Buyer',
-        guestPhone: '+8801700000001',
-        saveCustomer: true,
-      });
-
-      expect(txMock.customer.create).toHaveBeenCalledWith({
-        data: { name: 'Walk-in Buyer', phone: '+8801700000001' },
-      });
-      expect(txMock.order.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          data: expect.objectContaining({
-            customerId: '3f1d2c9a-0000-4000-8000-000000000099',
-          
-          
-          }),
-        }),
-      );
-    });
-
-    it('requires a phone number when saveCustomer is set', async () => {
-      await expect(
-        service.create({
-          items: createDto.items,
-          guestName: 'Walk-in Buyer',
-          saveCustomer: true,
-        }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prismaMock.client.$transaction).not.toHaveBeenCalled();
-    });
-
-    it('rejects saveCustomer together with an existing customerId', async () => {
-      await expect(
-        service.create({ ...createDto, saveCustomer: true }),
-      ).rejects.toBeInstanceOf(BadRequestException);
-      expect(prismaMock.client.$transaction).not.toHaveBeenCalled();
+      const createCall = txMock.order.create.mock.calls.at(-1)?.[0] as {
+        data: Record<string, unknown>;
+      };
+      expect(createCall.data).not.toHaveProperty('guestName');
+      expect(createCall.data).not.toHaveProperty('guestPhone');
     });
   });
 

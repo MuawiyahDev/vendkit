@@ -2,8 +2,6 @@ import { OrderPaymentStatus, OrderStatus, Prisma } from '@repo/database';
 
 export const DEFAULT_PAGE_SIZE = 20;
 
-export const DEFAULT_CURRENCY = 'BDT';
-
 export const MAX_ORDER_NUMBER_ATTEMPTS = 5;
 
 export const ORDER_NUMBER_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

@@ -16,6 +16,8 @@ import {
   normalizePhone,
 } from '../common/utils/phone.util.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { SettingsService } from '../settings/settings.service.js';
+import { calculateShippingCharge } from '../settings/settings.utils.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto.js';
 import { QueryOrdersDto } from './dto/query-orders.dto.js';
@@ -23,7 +25,6 @@ import { UpdateOrderDto } from './dto/update-order.dto.js';
 import { UpdateOrderPaymentStatusDto } from './dto/update-order-payment-status.dto.js';
 import { UpdateOrderStatusDto } from './dto/update-order-status.dto.js';
 import {
-  DEFAULT_CURRENCY,
   DEFAULT_PAGE_SIZE,
   MAX_ORDER_NUMBER_ATTEMPTS,
   ORDER_DETAIL_INCLUDE,
@@ -55,10 +56,33 @@ import {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly settings: SettingsService,
+  ) {}
 
   async create(dto: CreateOrderDto): Promise<OrderResponse> {
-    if (dto.customerId !== undefined) {
+    const settings = await this.settings.getOrderRuntimeConfig();
+
+    if (settings.requireCustomerInformation && !dto.customerId) {
+      throw new BadRequestException(
+        'A saved customer is required by the current order settings',
+      );
+    }
+
+    if (!settings.automaticNumbering && !dto.orderNumber) {
+      throw new BadRequestException(
+        'An order number is required when automatic order numbering is disabled',
+      );
+    }
+
+    if (settings.automaticNumbering && dto.orderNumber != null) {
+      throw new BadRequestException(
+        'Order numbers are generated automatically by the current settings',
+      );
+    }
+
+    if (dto.customerId) {
       await this.ensureCustomerExists(dto.customerId);
     }
 
@@ -66,11 +90,12 @@ export class OrdersService {
     const productIds = [...quantities.keys()];
 
     const discountAmount = new Prisma.Decimal(dto.discountAmount ?? 0);
-    const shippingFee = new Prisma.Decimal(dto.shippingFee ?? 0);
     const taxAmount = new Prisma.Decimal(dto.taxAmount ?? 0);
 
     for (let attempt = 1; attempt <= MAX_ORDER_NUMBER_ATTEMPTS; attempt += 1) {
-      const orderNumber = generateOrderNumber();
+      const orderNumber = settings.automaticNumbering
+        ? generateOrderNumber(settings.orderNumberPrefix)
+        : (dto.orderNumber as string);
 
       try {
         const order = await this.prisma.client.$transaction(async (tx) => {
@@ -129,6 +154,17 @@ export class OrdersService {
               'Order discount cannot exceed the subtotal',
             );
           }
+
+          const shippingFee = calculateShippingCharge({
+            requestedCharge:
+              dto.shippingFee == null
+                ? undefined
+                : new Prisma.Decimal(dto.shippingFee),
+            enabled: settings.shippingEnabled,
+            defaultCharge: settings.defaultShippingCharge,
+            freeShippingThreshold: settings.freeShippingThreshold,
+            subtotal,
+          });
 
           const totalAmount = subtotal
             .minus(discountAmount)
@@ -191,9 +227,9 @@ export class OrdersService {
             data: {
               orderNumber,
               customerId,
-              status: OrderStatus.PENDING,
+              status: settings.defaultStatus,
               paymentStatus: PaymentStatus.UNPAID,
-              currency: DEFAULT_CURRENCY,
+              currency: settings.currency,
               subtotal,
               discountAmount,
               shippingFee,
@@ -208,7 +244,7 @@ export class OrdersService {
               shippingCity: dto.shippingCity ?? shippingDefaults.city,
               shippingPostalCode:
                 dto.shippingPostalCode ?? shippingDefaults.postalCode,
-              customerNote: dto.customerNote ?? null,
+              customerNote: dto.customerNote ?? settings.defaultNotes,
               internalNote: dto.internalNote ?? null,
               items: {
                 create: lines.map((line) => ({
@@ -228,6 +264,7 @@ export class OrdersService {
         return toOrderResponse(order);
       } catch (error) {
         if (
+          settings.automaticNumbering &&
           isUniqueConstraintViolation(error) &&
           attempt < MAX_ORDER_NUMBER_ATTEMPTS
         ) {
@@ -370,6 +407,12 @@ export class OrdersService {
 
     if (existing.status === OrderStatus.CANCELLED) {
       throw new ConflictException('Cancelled orders cannot be modified');
+    }
+
+    const settings = await this.settings.getOrderRuntimeConfig();
+
+    if (!settings.allowEditing) {
+      throw new ConflictException('Order editing is disabled in settings');
     }
 
     const data: Prisma.OrderUpdateInput = {};
@@ -543,6 +586,12 @@ export class OrdersService {
 
     if (amount.lte(0)) {
       throw new BadRequestException('Payment amount must be greater than zero');
+    }
+
+    if (!(await this.settings.isPaymentMethodEnabled(dto.method))) {
+      throw new BadRequestException(
+        `Payment method ${dto.method} is disabled in settings`,
+      );
     }
 
     return this.prisma.client.$transaction(async (tx) => {
