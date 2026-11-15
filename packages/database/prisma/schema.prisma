@@ -41,6 +41,27 @@ enum OrderPaymentStatus {
   FAILED
 }
 
+enum CurrencyPosition {
+  BEFORE
+  AFTER
+}
+
+enum CurrencyDisplayFormat {
+  SYMBOL
+  CODE
+  SYMBOL_AND_CODE
+}
+
+enum TaxPricingMode {
+  INCLUSIVE
+  EXCLUSIVE
+}
+
+enum InvoiceDefaultStatus {
+  DRAFT
+  ISSUED
+}
+
 model User {
   id           String         @id @default(uuid())
   email        String         @unique
@@ -94,9 +115,11 @@ model Image {
   width        Int?
   height       Int?
   altText      String?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  products     ProductImage[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  products            ProductImage[]
+  businessProfileLogo BusinessProfileSettings? @relation("BusinessProfileLogo")
+  invoiceLogo         InvoiceSettings?         @relation("InvoiceLogo")
 
   @@index([createdAt])
 }
@@ -233,4 +256,163 @@ model OrderPayment {
 
   @@unique([orderId, reference])
   @@index([orderId, status])
+}
+
+/// Singleton business profile used by invoices, documents and notifications.
+model BusinessProfileSettings {
+  id                      String   @id @default("default") @db.VarChar(20)
+  businessName            String   @default("VendKit") @db.VarChar(200)
+  legalName               String?  @db.VarChar(200)
+  logoImageId             String?  @unique
+  logo                    Image?   @relation("BusinessProfileLogo", fields: [logoImageId], references: [id], onDelete: SetNull)
+  email                   String?  @db.VarChar(254)
+  phone                   String?  @db.VarChar(30)
+  alternativePhone        String?  @db.VarChar(30)
+  website                 String?  @db.VarChar(500)
+  description             String?  @db.VarChar(2000)
+  registrationNumber      String?  @db.VarChar(100)
+  taxIdentificationNumber String?  @db.VarChar(100)
+  addressLine1            String?  @db.VarChar(500)
+  addressLine2            String?  @db.VarChar(500)
+  city                    String?  @db.VarChar(100)
+  state                   String?  @db.VarChar(100)
+  postalCode              String?  @db.VarChar(20)
+  country                 String?  @db.VarChar(100)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
+
+/// Singleton invoice presentation, numbering and behaviour configuration.
+model InvoiceSettings {
+  id                      String                @id @default("default") @db.VarChar(20)
+  useBusinessProfile      Boolean               @default(true)
+  displayName             String?               @db.VarChar(200)
+  logoImageId             String?               @unique
+  logo                    Image?                @relation("InvoiceLogo", fields: [logoImageId], references: [id], onDelete: SetNull)
+  email                   String?               @db.VarChar(254)
+  phone                   String?               @db.VarChar(30)
+  addressLine1            String?               @db.VarChar(500)
+  addressLine2            String?               @db.VarChar(500)
+  city                    String?               @db.VarChar(100)
+  state                   String?               @db.VarChar(100)
+  postalCode              String?               @db.VarChar(20)
+  country                 String?               @db.VarChar(100)
+  taxRegistrationNumber   String?               @db.VarChar(100)
+  additionalInfo          String?               @db.VarChar(2000)
+  numberPrefix            String                @default("INV") @db.VarChar(20)
+  numberFormat            String                @default("{prefix}-{year}-{sequence}") @db.VarChar(100)
+  yearBasedNumbering      Boolean               @default(true)
+  automaticNumbering      Boolean               @default(true)
+  startingSequence        Int                   @default(1)
+  duePeriodDays           Int                   @default(30)
+  paymentTerms            String?               @db.VarChar(1000)
+  notes                   String?               @db.VarChar(2000)
+  footerText              String?               @db.VarChar(1000)
+  currencyDisplayFormat   CurrencyDisplayFormat @default(SYMBOL)
+  showSku                 Boolean               @default(true)
+  showTaxBreakdown        Boolean               @default(true)
+  showDiscountBreakdown   Boolean               @default(true)
+  defaultStatus           InvoiceDefaultStatus  @default(DRAFT)
+  allowEditingAfterIssue  Boolean               @default(false)
+  allowCancellation       Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+}
+
+/// Singleton currency, country, timezone and formatting defaults.
+model RegionalSettings {
+  id                String          @id @default("default") @db.VarChar(20)
+  currency          String          @default("BDT") @db.VarChar(3)
+  currencySymbol    String          @default("৳") @db.VarChar(8)
+  currencyPosition  CurrencyPosition @default(BEFORE)
+  decimalPrecision  Int             @default(2)
+  thousandSeparator String          @default(",") @db.VarChar(3)
+  decimalSeparator  String          @default(".") @db.VarChar(3)
+  defaultCountry    String          @default("BD") @db.VarChar(2)
+  timezone          String          @default("Asia/Dhaka") @db.VarChar(100)
+  dateFormat        String          @default("DD/MM/YYYY") @db.VarChar(20)
+  timeFormat        String          @default("HH:mm") @db.VarChar(20)
+  language          String          @default("en") @db.VarChar(10)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+/// Singleton tax defaults. Historical orders and invoices keep their own values.
+model TaxSettings {
+  id                      String         @id @default("default") @db.VarChar(20)
+  enabled                 Boolean        @default(false)
+  defaultName             String         @default("VAT") @db.VarChar(100)
+  defaultRate             Decimal        @default(0) @db.Decimal(5, 2)
+  taxIdentificationNumber String?        @db.VarChar(100)
+  pricingMode             TaxPricingMode @default(EXCLUSIVE)
+  showBreakdownOnInvoice  Boolean        @default(true)
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+}
+
+/// Singleton order creation defaults and editing rules.
+model OrderSettings {
+  id                         String      @id @default("default") @db.VarChar(20)
+  orderNumberPrefix          String      @default("ORD") @db.VarChar(20)
+  automaticNumbering         Boolean     @default(true)
+  defaultStatus              OrderStatus @default(PENDING)
+  defaultNotes               String?     @db.VarChar(2000)
+  allowEditing               Boolean     @default(true)
+  requireCustomerInformation Boolean     @default(false)
+  createdAt                  DateTime    @default(now())
+  updatedAt                  DateTime    @updatedAt
+}
+
+/// Singleton payment method availability and bank transfer details.
+model PaymentSettings {
+  id                  String          @id @default("default") @db.VarChar(20)
+  enabledMethods      PaymentMethod[] @default([CASH, BANK_TRANSFER, MOBILE_FINANCIAL_SERVICE, CARD, OTHER])
+  defaultMethod       PaymentMethod   @default(CASH)
+  bankAccountName     String?         @db.VarChar(200)
+  bankName            String?         @db.VarChar(200)
+  accountNumber       String?         @db.VarChar(100)
+  branchName          String?         @db.VarChar(200)
+  routingNumber       String?         @db.VarChar(100)
+  paymentInstructions String?         @db.VarChar(2000)
+  defaultPaymentTerms String?         @db.VarChar(1000)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+}
+
+/// Singleton shipping defaults. Delivery lifecycle remains in the orders module.
+model ShippingSettings {
+  id                  String   @id @default("default") @db.VarChar(20)
+  enabled             Boolean  @default(true)
+  defaultCharge       Decimal  @default(0) @db.Decimal(12, 2)
+  freeShippingThreshold Decimal? @db.Decimal(12, 2)
+  deliveryInstructions String? @db.VarChar(2000)
+  defaultDeliveryMethod String? @db.VarChar(100)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+/// Singleton notification preferences. Delivery integrations live elsewhere.
+model NotificationSettings {
+  id                       String   @id @default("default") @db.VarChar(20)
+  businessNotificationEmail String? @db.VarChar(254)
+  orderConfirmationEnabled Boolean  @default(false)
+  paymentEnabled           Boolean  @default(false)
+  invoiceEnabled           Boolean  @default(false)
+  senderName               String   @default("VendKit") @db.VarChar(200)
+  replyToEmail             String?  @db.VarChar(254)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+}
+
+/// Atomic counters used to allocate unique, gap-tolerant document numbers.
+model DocumentSequence {
+  id        String   @id @default(uuid())
+  key       String   @db.VarChar(50)
+  year      Int
+  nextValue Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([key, year])
+  @@index([key])
 }
