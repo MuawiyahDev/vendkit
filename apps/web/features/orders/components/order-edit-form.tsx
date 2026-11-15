@@ -59,7 +59,7 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
 
   const {
-    register, // eslint-disable-line @typescript-eslint/no-unused-vars
+    register,
     handleSubmit,
     reset,
 
@@ -194,8 +194,8 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
             description="Update where this order should be delivered."
           >
             <OrderShippingSection
-
-                            shippingNameError={errors.shippingName?.message}
+              register={register}
+              shippingNameError={errors.shippingName?.message}
               shippingPhoneError={errors.shippingPhone?.message}
               shippingAddressError={errors.shippingAddress?.message}
               shippingCityError={errors.shippingCity?.message}
@@ -209,8 +209,8 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
             description="Keep context with the order for the customer and your team."
           >
             <OrderNotesSection
-
-                            customerNoteError={errors.customerNote?.message}
+              register={register}
+              customerNoteError={errors.customerNote?.message}
               internalNoteError={errors.internalNote?.message}
               isSubmitting={isSubmitting}
             />

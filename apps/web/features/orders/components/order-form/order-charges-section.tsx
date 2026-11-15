@@ -1,14 +1,16 @@
 "use client";
 
+import type { FieldErrors, UseFormRegisterReturn } from "react-hook-form";
+
 import { FieldError } from "@/components/shared/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { FieldErrors, UseFormRegister } from "react-hook-form";
 
 import type { OrderCreateFormValues } from "../../schemas/orders.schemas";
+import type { OrderChargeFieldName } from "./order-form.types";
 
 interface OrderChargesSectionProps {
-  register: (name: string) => any;
+  register: (name: OrderChargeFieldName) => UseFormRegisterReturn;
   errors: FieldErrors<OrderCreateFormValues>;
   /** Live preview subtotal, used for the discount hint. */
   subtotal: string;

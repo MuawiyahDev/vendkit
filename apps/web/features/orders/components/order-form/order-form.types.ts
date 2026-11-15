@@ -1,25 +1,15 @@
-import type { UseFormRegisterReturn } from "react-hook-form";
-
 /**
- * The plain text fields (walk-in guest details, shipping address, and notes)
- * that exist on both the create and update order forms and are rendered
- * through shared components.
+ * Field groups rendered by shared order-form sections. Each section accepts a
+ * register function narrowed to the exact field names it renders, so the
+ * create and edit forms can pass their fully typed `register` without `any`.
  */
-export type OrderTextField =
-  | "guestName"
-  | "guestPhone"
+export type OrderChargeFieldName = "discountAmount" | "shippingFee" | "taxAmount";
+
+export type OrderShippingFieldName =
   | "shippingName"
   | "shippingPhone"
   | "shippingAddress"
   | "shippingCity"
-  | "shippingPostalCode"
-  | "customerNote"
-  | "internalNote";
+  | "shippingPostalCode";
 
-/**
- * Register accessor compatible with `UseFormRegister` of either order form,
- * narrowed to the shared text fields.
- */
-export type OrderTextFieldRegister = <TFieldName extends string>(
-  name: TFieldName,
-) => UseFormRegisterReturn<TFieldName>;
+export type OrderNotesFieldName = "customerNote" | "internalNote";

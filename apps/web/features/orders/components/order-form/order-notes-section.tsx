@@ -1,13 +1,15 @@
 "use client";
 
+import type { UseFormRegisterReturn } from "react-hook-form";
+
 import { FieldError } from "@/components/shared/field-error";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-
+import type { OrderNotesFieldName } from "./order-form.types";
 
 interface OrderNotesSectionProps {
-  register: (name: string) => any;
+  register: (name: OrderNotesFieldName) => UseFormRegisterReturn;
   customerNoteError?: string;
   internalNoteError?: string;
   isSubmitting: boolean;

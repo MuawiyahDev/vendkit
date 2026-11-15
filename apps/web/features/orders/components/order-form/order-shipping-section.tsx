@@ -1,14 +1,18 @@
 "use client";
 
+import type { UseFormRegisterReturn } from "react-hook-form";
+
 import { FieldError } from "@/components/shared/field-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
-
+import type { OrderShippingFieldName } from "./order-form.types";
 
 interface OrderShippingSectionProps {
-  register: (name: string) => any;
+  register: (
+    name: OrderShippingFieldName,
+  ) => UseFormRegisterReturn;
   shippingNameError?: string;
   shippingPhoneError?: string;
   shippingAddressError?: string;
