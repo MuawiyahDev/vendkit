@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, LoaderCircle, TriangleAlert } from "lucide-react";
+import { AlertCircle, LoaderCircle, Lock, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -14,10 +14,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { ApiError } from "@/lib/api/client";
 
 import { deleteImage, type Image } from "../api/images-api";
-import { formatBytes } from "../utils/images.utils";
+import {
+  describeImageUsage,
+  formatBytes,
+  formatImageMimeType,
+} from "../utils/images.utils";
 import { ImageThumbnail } from "./image-thumbnail";
 
 interface ImageDeleteDialogProps {
@@ -28,9 +33,10 @@ interface ImageDeleteDialogProps {
 }
 
 /**
- * Confirms permanent deletion of a library image. The backend rejects the
- * delete while products still reference the image, and that failure is
- * surfaced here without touching any product data.
+ * Confirms permanent deletion of a library image. Images that products,
+ * invoice settings, or the business profile still reference are protected:
+ * the action is disabled up front and a concurrent reference change is
+ * surfaced as the backend's 409 conflict message.
  */
 export function ImageDeleteDialog({
   image,
@@ -52,7 +58,7 @@ export function ImageDeleteDialog({
   }
 
   async function handleConfirm() {
-    if (!image || isDeleting) {
+    if (!image || isDeleting || image.usage.total > 0) {
       return;
     }
 
@@ -77,6 +83,7 @@ export function ImageDeleteDialog({
     image && image.width !== null && image.height !== null
       ? `${image.width} × ${image.height}`
       : null;
+  const isInUse = image !== null && image.usage.total > 0;
 
   return (
     <AlertDialog open={open} onOpenChange={handleOpenChange}>
@@ -86,11 +93,13 @@ export function ImageDeleteDialog({
             <TriangleAlert className="size-5" aria-hidden="true" />
           </span>
           <AlertDialogHeader className="gap-1.5 text-left">
-            <AlertDialogTitle>Delete image?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isInUse ? "Image is still in use" : "Delete image?"}
+            </AlertDialogTitle>
             <AlertDialogDescription className="leading-relaxed">
-              This permanently removes the file from your library and cannot
-              be undone. Images that are still used by products cannot be
-              deleted until those products no longer reference them.
+              {isInUse
+                ? "This image is referenced by other records. Detach it from them first; deleting it now would break those references."
+                : "This permanently removes the file from your library and cannot be undone."}
             </AlertDialogDescription>
           </AlertDialogHeader>
         </div>
@@ -112,9 +121,24 @@ export function ImageDeleteDialog({
               </p>
               <p className="text-muted-foreground text-xs tabular-nums">
                 {dimensions ? `${dimensions} · ` : ""}
-                {formatBytes(image.size)} · {image.mimeType}
+                {formatBytes(image.size)} ·{" "}
+                {formatImageMimeType(image.mimeType)}
               </p>
             </div>
+          </div>
+        ) : null}
+
+        {image ? (
+          <div className="border-border-subtle flex flex-col gap-2 rounded-lg border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-foreground text-xs font-medium">Usage</span>
+              <Badge variant={isInUse ? "warning" : "secondary"} dot>
+                {isInUse ? "In use" : "Not in use"}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {describeImageUsage(image.usage)}
+            </p>
           </div>
         ) : null}
 
@@ -126,10 +150,17 @@ export function ImageDeleteDialog({
         ) : null}
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel disabled={isDeleting}>
+            {isInUse ? "Close" : "Cancel"}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
-            disabled={isDeleting || !image}
+            disabled={isDeleting || !image || isInUse}
+            title={
+              isInUse
+                ? "Detach this image from the records using it before deleting it."
+                : undefined
+            }
             onClick={(event) => {
               event.preventDefault();
               void handleConfirm();
@@ -137,6 +168,8 @@ export function ImageDeleteDialog({
           >
             {isDeleting ? (
               <LoaderCircle className="animate-spin" aria-hidden="true" />
+            ) : isInUse ? (
+              <Lock aria-hidden="true" />
             ) : (
               <TriangleAlert aria-hidden="true" />
             )}

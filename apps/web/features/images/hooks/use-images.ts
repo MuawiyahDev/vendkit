@@ -5,7 +5,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { ApiError } from "@/lib/api/client";
 
-import { listImages, type ImageListResponse } from "../api/images-api";
+import {
+  listImages,
+  type ImageListResponse,
+  type ImageSortField,
+  type ImageSortOrder,
+  type ImageTypeFilter,
+} from "../api/images-api";
+import { DEFAULT_IMAGE_SORT } from "../images.constants";
 
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -29,6 +36,13 @@ export function useImages() {
   );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_IMAGE_PAGE_SIZE);
+  const [typeFilter, setTypeFilterState] = useState<ImageTypeFilter>("all");
+  const [sortBy, setSortByState] = useState<ImageSortField>(
+    DEFAULT_IMAGE_SORT.sortBy,
+  );
+  const [sortOrder, setSortOrderState] = useState<ImageSortOrder>(
+    DEFAULT_IMAGE_SORT.sortOrder,
+  );
   const [view, setView] = useState<ImageLibraryView>({ status: "loading" });
   const [isFetching, setIsFetching] = useState(true);
   const [fetchNonce, setFetchNonce] = useState(0);
@@ -36,12 +50,27 @@ export function useImages() {
 
   // Reset pagination as soon as the query changes (render-time adjustment,
   // avoiding a cascading effect-driven setState).
-  const [prevQuery, setPrevQuery] = useState({ debouncedSearch, pageSize });
+  const [prevQuery, setPrevQuery] = useState({
+    debouncedSearch,
+    pageSize,
+    typeFilter,
+    sortBy,
+    sortOrder,
+  });
   if (
     prevQuery.debouncedSearch !== debouncedSearch ||
-    prevQuery.pageSize !== pageSize
+    prevQuery.pageSize !== pageSize ||
+    prevQuery.typeFilter !== typeFilter ||
+    prevQuery.sortBy !== sortBy ||
+    prevQuery.sortOrder !== sortOrder
   ) {
-    setPrevQuery({ debouncedSearch, pageSize });
+    setPrevQuery({
+      debouncedSearch,
+      pageSize,
+      typeFilter,
+      sortBy,
+      sortOrder,
+    });
     setPage(1);
     setIsFetching(true);
   }
@@ -57,6 +86,9 @@ export function useImages() {
             page,
             limit: pageSize,
             search: debouncedSearch || undefined,
+            mimeType: typeFilter === "all" ? undefined : typeFilter,
+            sortBy,
+            sortOrder,
           },
           { signal: controller.signal },
         );
@@ -84,7 +116,29 @@ export function useImages() {
     })();
 
     return () => controller.abort();
-  }, [page, pageSize, debouncedSearch, fetchNonce]);
+  }, [
+    page,
+    pageSize,
+    debouncedSearch,
+    typeFilter,
+    sortBy,
+    sortOrder,
+    fetchNonce,
+  ]);
+
+  const setTypeFilter = useCallback((next: ImageTypeFilter) => {
+    setIsFetching(true);
+    setTypeFilterState(next);
+  }, []);
+
+  const setSort = useCallback(
+    (next: { sortBy: ImageSortField; sortOrder: ImageSortOrder }) => {
+      setIsFetching(true);
+      setSortByState(next.sortBy);
+      setSortOrderState(next.sortOrder);
+    },
+    [],
+  );
 
   const changePage = useCallback((nextPage: number) => {
     setIsFetching(true);
@@ -101,16 +155,27 @@ export function useImages() {
     setFetchNonce((nonce) => nonce + 1);
   }, []);
 
+  const clearFilters = useCallback(() => {
+    setSearchInput("");
+    setTypeFilterState("all");
+  }, []);
+
   return {
     view,
     isFetching,
     searchInput,
     debouncedSearch,
     setSearchInput,
+    typeFilter,
+    setTypeFilter,
+    sortBy,
+    sortOrder,
+    setSort,
     page,
     setPage: changePage,
     pageSize,
     setPageSize: changePageSize,
     refresh,
+    clearFilters,
   };
 }

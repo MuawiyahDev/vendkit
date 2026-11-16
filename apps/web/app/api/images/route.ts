@@ -10,6 +10,17 @@ import type {
 
 const MAX_PAGE_SIZE = 100;
 
+const ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+] as const;
+
+const ALLOWED_SORT_FIELDS = ["createdAt", "originalName", "size"] as const;
+
+const ALLOWED_SORT_ORDERS = ["asc", "desc"] as const;
+
 function buildListQueryString(searchParams: URLSearchParams): string | null {
   const params = new URLSearchParams();
 
@@ -37,6 +48,30 @@ function buildListQueryString(searchParams: URLSearchParams): string | null {
       return null;
     }
     params.set("search", search);
+  }
+
+  const mimeType = searchParams.get("mimeType")?.trim();
+  if (mimeType) {
+    if (!(ALLOWED_MIME_TYPES as readonly string[]).includes(mimeType)) {
+      return null;
+    }
+    params.set("mimeType", mimeType);
+  }
+
+  const sortBy = searchParams.get("sortBy")?.trim();
+  if (sortBy) {
+    if (!(ALLOWED_SORT_FIELDS as readonly string[]).includes(sortBy)) {
+      return null;
+    }
+    params.set("sortBy", sortBy);
+  }
+
+  const sortOrder = searchParams.get("sortOrder")?.trim();
+  if (sortOrder) {
+    if (!(ALLOWED_SORT_ORDERS as readonly string[]).includes(sortOrder)) {
+      return null;
+    }
+    params.set("sortOrder", sortOrder);
   }
 
   return params.toString();

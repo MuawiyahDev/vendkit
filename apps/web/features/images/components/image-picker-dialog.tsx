@@ -33,9 +33,11 @@ interface ImagePickerDialogProps {
 function SelectedStrip({
   images,
   onRemove,
+  onClear,
 }: {
   images: readonly PickedImage[];
   onRemove: (id: string) => void;
+  onClear: () => void;
 }) {
   if (images.length === 0) {
     return null;
@@ -43,10 +45,15 @@ function SelectedStrip({
 
   return (
     <div className="border-border-subtle border-b px-4 py-3 sm:px-5">
-      <p className="text-muted-foreground mb-2 text-xs font-medium">
-        Selected ({images.length})
-      </p>
-      <ul className="flex flex-wrap gap-2">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-muted-foreground text-xs font-medium">
+          Selected ({images.length})
+        </p>
+        <Button type="button" variant="ghost" size="xs" onClick={onClear}>
+          Clear
+        </Button>
+      </div>
+      <ul className="flex flex-wrap gap-2.5">
         {images.map((image) => (
           <li key={image.id} className="group relative">
             <span
@@ -62,7 +69,7 @@ function SelectedStrip({
               type="button"
               onClick={() => onRemove(image.id)}
               aria-label={`Remove ${image.originalName} from selection`}
-              className="bg-destructive text-destructive-foreground focus-visible:ring-ring/60 absolute -top-1.5 -right-1.5 flex size-4.5 items-center justify-center rounded-full opacity-0 shadow-sm transition-opacity focus-visible:ring-[3px] focus-visible:outline-hidden group-hover:opacity-100 group-focus-within:opacity-100"
+              className="bg-destructive text-destructive-foreground focus-visible:ring-ring/60 absolute -top-2 -right-2 flex size-5 items-center justify-center rounded-full opacity-100 shadow-sm transition-opacity focus-visible:ring-[3px] focus-visible:outline-hidden sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
             >
               <X className="size-3" aria-hidden="true" />
             </button>
@@ -127,13 +134,14 @@ export function ImagePickerDialog({
             {mode === "single" ? "Select an image" : "Select images"}
           </DialogTitle>
           <DialogDescription>
-            Pick from your library or upload new images — already uploaded
-            files can be reused without uploading them again.
+            Pick from your library or upload new images — already uploaded files
+            can be reused without uploading them again.
           </DialogDescription>
         </DialogHeader>
 
         <div className="overflow-y-auto">
           <ImageLibrary
+            variant="embedded"
             selectionMode={mode}
             selected={draft}
             onSelectionChange={setDraft}
@@ -145,6 +153,7 @@ export function ImagePickerDialog({
           onRemove={(id) =>
             setDraft((current) => current.filter((item) => item.id !== id))
           }
+          onClear={() => setDraft([])}
         />
 
         <DialogFooter className="border-border-subtle bg-surface-muted/40 border-t px-6 py-4">

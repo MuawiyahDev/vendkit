@@ -4,11 +4,7 @@ import { useCallback, useRef, useState } from "react";
 
 import { ApiError } from "@/lib/api/client";
 
-import {
-  uploadImage,
-  UploadCancelledError,
-  type Image,
-} from "../api/images-api";
+import { uploadImage, UploadCancelledError } from "../api/images-api";
 import { validateImageFile } from "../utils/images.utils";
 
 export interface PendingUpload {
@@ -19,24 +15,15 @@ export interface PendingUpload {
   progress: number;
 }
 
-export interface UploadFailure {
-  name: string;
-  message: string;
-}
-
 let uploadCounter = 0;
 
 /**
  * Runs image uploads sequentially with per-file progress, validating each
- * file against the backend rules before sending it. Successfully uploaded
- * files are reported through `onUploaded` so the caller can refresh its
- * list; failed files surface a readable error without corrupting the queue.
+ * file against the backend rules before sending it. Returns the number of
+ * files that uploaded successfully so the caller can refresh its collection
+ * once per batch instead of once per image.
  */
-export function useImageUploads({
-  onUploaded,
-}: {
-  onUploaded: (image: Image) => void;
-}) {
+export function useImageUploads() {
   const [uploads, setUploads] = useState<PendingUpload[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -56,9 +43,9 @@ export function useImageUploads({
   );
 
   const uploadFiles = useCallback(
-    async (files: File[]) => {
+    async (files: File[]): Promise<number> => {
       if (files.length === 0 || isUploading) {
-        return;
+        return 0;
       }
 
       setError(null);
@@ -94,12 +81,13 @@ export function useImageUploads({
       }
 
       if (validFiles.length === 0) {
-        return;
+        return 0;
       }
 
       setIsUploading(true);
       const controller = new AbortController();
       activeControllerRef.current = controller;
+      let uploadedCount = 0;
 
       try {
         for (const file of validFiles) {
@@ -114,13 +102,13 @@ export function useImageUploads({
           ]);
 
           try {
-            const image = await uploadImage(file, {
+            await uploadImage(file, {
               signal: controller.signal,
               onProgress: (fraction) =>
                 updateUpload(id, { progress: fraction }),
             });
             updateUpload(id, null);
-            onUploaded(image);
+            uploadedCount += 1;
           } catch (caught) {
             updateUpload(id, null);
 
@@ -129,10 +117,13 @@ export function useImageUploads({
               continue;
             }
 
-            setError(
+            const message =
               caught instanceof ApiError
                 ? `“${file.name}” failed to upload: ${caught.message}`
-                : `“${file.name}” failed to upload. Please try again.`,
+                : `“${file.name}” failed to upload. Please try again.`;
+            // Accumulate failures so a batch never hides earlier errors.
+            setError((current) =>
+              current ? `${current} ${message}` : message,
             );
           }
         }
@@ -140,8 +131,10 @@ export function useImageUploads({
         activeControllerRef.current = null;
         setIsUploading(false);
       }
+
+      return uploadedCount;
     },
-    [isUploading, onUploaded, updateUpload],
+    [isUploading, updateUpload],
   );
 
   const dismissError = useCallback(() => setError(null), []);

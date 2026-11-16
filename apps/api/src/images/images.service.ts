@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   InternalServerErrorException,
@@ -26,9 +27,29 @@ import { IMAGE_MAX_FILE_SIZE } from './images.constants.js';
 
 export const DEFAULT_PAGE_SIZE = 20;
 
+/** Window used for the "recent uploads" statistic. */
+export const RECENT_UPLOAD_WINDOW_DAYS = 30;
+
 const IMAGE_API_ROUTE = '/api/images';
 
 const MAX_STORED_ORIGINAL_NAME_LENGTH = 255;
+
+const IMAGE_USAGE_INCLUDE = {
+  _count: { select: { products: true } },
+  businessProfileLogo: { select: { id: true } },
+  invoiceLogo: { select: { id: true } },
+} satisfies Prisma.ImageInclude;
+
+type ImageWithUsage = Prisma.ImageGetPayload<{
+  include: typeof IMAGE_USAGE_INCLUDE;
+}>;
+
+const EMPTY_IMAGE_USAGE: ImageUsageResponse = {
+  total: 0,
+  productCount: 0,
+  businessProfileLogo: false,
+  invoiceLogo: false,
+};
 
 const MIME_TYPE_EXTENSIONS: Record<SupportedImageMimeType, string> = {
   'image/jpeg': 'jpg',
@@ -42,6 +63,14 @@ export interface UploadedImageFile {
   buffer: Buffer;
 }
 
+export interface ImageUsageResponse {
+  /** Total number of records referencing this image. */
+  total: number;
+  productCount: number;
+  businessProfileLogo: boolean;
+  invoiceLogo: boolean;
+}
+
 export interface ImageResponse {
   id: string;
   originalName: string;
@@ -51,6 +80,7 @@ export interface ImageResponse {
   height: number | null;
   altText: string | null;
   url: string;
+  usage: ImageUsageResponse;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -65,6 +95,20 @@ export interface PaginationMeta {
 export interface PaginatedImages {
   data: ImageResponse[];
   meta: PaginationMeta;
+}
+
+export interface ImageTypeUsageResponse {
+  mimeType: string;
+  count: number;
+  size: number;
+}
+
+export interface ImageLibraryStatsResponse {
+  totalImages: number;
+  storageBytes: number;
+  recentUploads: number;
+  recentWindowDays: number;
+  byType: ImageTypeUsageResponse[];
 }
 
 export interface StoredImageFile {
@@ -168,19 +212,23 @@ export class ImagesService {
     const limit = query.limit ?? DEFAULT_PAGE_SIZE;
     const search = query.search || undefined;
 
-    const where: Prisma.ImageWhereInput = search
-      ? {
-          originalName: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        }
-      : {};
+    const where: Prisma.ImageWhereInput = {
+      ...(search
+        ? {
+            originalName: {
+              contains: search,
+              mode: 'insensitive',
+            },
+          }
+        : {}),
+      ...(query.mimeType ? { mimeType: query.mimeType } : {}),
+    };
 
     const [data, total] = await Promise.all([
       this.prisma.client.image.findMany({
         where,
-        orderBy: { createdAt: 'desc' },
+        include: IMAGE_USAGE_INCLUDE,
+        orderBy: this.buildOrderBy(query),
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -188,7 +236,7 @@ export class ImagesService {
     ]);
 
     return {
-      data: data.map((image) => this.toResponse(image)),
+      data: data.map((image) => this.toResponse(image, this.toUsage(image))),
       meta: {
         page,
         limit,
@@ -198,16 +246,58 @@ export class ImagesService {
     };
   }
 
+  async getStats(): Promise<ImageLibraryStatsResponse> {
+    const recentSince = new Date(
+      Date.now() - RECENT_UPLOAD_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    );
+
+    const [totalImages, storage, recentUploads, typeGroups] = await Promise.all(
+      [
+        this.prisma.client.image.count(),
+        this.prisma.client.image.aggregate({ _sum: { size: true } }),
+        this.prisma.client.image.count({
+          where: { createdAt: { gte: recentSince } },
+        }),
+        this.prisma.client.image.groupBy({
+          by: ['mimeType'],
+          _count: { _all: true },
+          _sum: { size: true },
+        }),
+      ],
+    );
+
+    const byType = typeGroups
+      .map((group) => ({
+        mimeType: group.mimeType,
+        count: group._count._all,
+        size: group._sum.size ?? 0,
+      }))
+      .sort(
+        (left, right) =>
+          right.count - left.count ||
+          left.mimeType.localeCompare(right.mimeType),
+      );
+
+    return {
+      totalImages,
+      storageBytes: storage._sum.size ?? 0,
+      recentUploads,
+      recentWindowDays: RECENT_UPLOAD_WINDOW_DAYS,
+      byType,
+    };
+  }
+
   async findOne(id: string): Promise<ImageResponse> {
     const image = await this.prisma.client.image.findUnique({
       where: { id },
+      include: IMAGE_USAGE_INCLUDE,
     });
 
     if (!image) {
       throw new NotFoundException('Image not found');
     }
 
-    return this.toResponse(image);
+    return this.toResponse(image, this.toUsage(image));
   }
 
   async getFile(id: string): Promise<StoredImageFile> {
@@ -238,38 +328,138 @@ export class ImagesService {
   async remove(id: string): Promise<void> {
     const image = await this.prisma.client.image.findUnique({
       where: { id },
-      select: { id: true, storageKey: true },
+      include: IMAGE_USAGE_INCLUDE,
     });
 
     if (!image) {
       throw new NotFoundException('Image not found');
     }
 
-    // Delete the file first. Storage deletes are idempotent, so if the
-    // database delete fails afterwards the record remains and a retry
-    // converges instead of leaving an orphaned file behind.
+    const usage = this.toUsage(image);
+
+    if (usage.total > 0) {
+      throw new ConflictException(this.buildInUseMessage(usage));
+    }
+
+    // Remove the database record first so foreign keys remain the final
+    // guard against deleting a file that a concurrent change just attached
+    // to a product. If storage cleanup fails, recreate the metadata record
+    // so the image stays consistent and retryable.
+    try {
+      await this.prisma.client.image.delete({ where: { id } });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        (error.code === 'P2003' || error.code === 'P2014')
+      ) {
+        throw new ConflictException(
+          'This image is still in use and cannot be deleted. Remove it from the records that reference it first.',
+        );
+      }
+
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException('Image not found');
+      }
+
+      this.logger.error(
+        `Failed to delete image record "${id}"`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new InternalServerErrorException('Failed to delete the image');
+    }
+
     try {
       await this.storage.delete(image.storageKey);
     } catch (error) {
       this.logger.error(
-        `Failed to delete image file "${image.storageKey}"`,
+        `Failed to delete image file "${image.storageKey}"; restoring metadata record`,
         error instanceof Error ? error.stack : undefined,
       );
-      throw new InternalServerErrorException('Failed to delete the image');
-    }
-
-    try {
-      await this.prisma.client.image.delete({ where: { id } });
-    } catch (error) {
-      this.logger.error(
-        `Failed to delete image record "${id}" after deleting its file`,
-        error instanceof Error ? error.stack : undefined,
-      );
+      await this.restoreImageRecord(image);
       throw new InternalServerErrorException('Failed to delete the image');
     }
   }
 
-  private toResponse(image: Image): ImageResponse {
+  private buildOrderBy(
+    query: QueryImagesDto,
+  ): Prisma.ImageOrderByWithRelationInput {
+    const field = query.sortBy ?? 'createdAt';
+    const order =
+      query.sortOrder ?? (field === 'originalName' ? 'asc' : 'desc');
+
+    switch (field) {
+      case 'originalName':
+        return { originalName: order };
+      case 'size':
+        return { size: order };
+      default:
+        return { createdAt: order };
+    }
+  }
+
+  private toUsage(image: ImageWithUsage): ImageUsageResponse {
+    const productCount = image._count.products;
+
+    return {
+      total:
+        productCount +
+        (image.businessProfileLogo ? 1 : 0) +
+        (image.invoiceLogo ? 1 : 0),
+      productCount,
+      businessProfileLogo: image.businessProfileLogo !== null,
+      invoiceLogo: image.invoiceLogo !== null,
+    };
+  }
+
+  private buildInUseMessage(usage: ImageUsageResponse): string {
+    const references: string[] = [];
+
+    if (usage.productCount > 0) {
+      references.push(
+        `${usage.productCount} ${usage.productCount === 1 ? 'product' : 'products'}`,
+      );
+    }
+    if (usage.businessProfileLogo) {
+      references.push('the business profile logo');
+    }
+    if (usage.invoiceLogo) {
+      references.push('the invoice logo');
+    }
+
+    return `This image is still in use by ${references.join(', ')}. Remove it from those records before deleting it.`;
+  }
+
+  private async restoreImageRecord(image: ImageWithUsage): Promise<void> {
+    try {
+      await this.prisma.client.image.create({
+        data: {
+          id: image.id,
+          originalName: image.originalName,
+          storageKey: image.storageKey,
+          mimeType: image.mimeType,
+          size: image.size,
+          width: image.width,
+          height: image.height,
+          altText: image.altText,
+          createdAt: image.createdAt,
+          updatedAt: image.updatedAt,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to restore image record "${image.id}" after storage deletion failed`,
+        error instanceof Error ? error.stack : undefined,
+      );
+    }
+  }
+
+  private toResponse(
+    image: Image,
+    usage: ImageUsageResponse = EMPTY_IMAGE_USAGE,
+  ): ImageResponse {
     return {
       id: image.id,
       originalName: image.originalName,
@@ -279,6 +469,7 @@ export class ImagesService {
       height: image.height,
       altText: image.altText,
       url: `${IMAGE_API_ROUTE}/${image.id}/file`,
+      usage,
       createdAt: image.createdAt,
       updatedAt: image.updatedAt,
     };

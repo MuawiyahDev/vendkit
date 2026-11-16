@@ -33,10 +33,7 @@ describe('Images (e2e)', () => {
     return { Authorization: `Bearer ${accessToken}` };
   }
 
-  function uploadPng(
-    filename = `photo-${uniqueSuffix}.png`,
-    altText?: string,
-  ) {
+  function uploadPng(filename = `photo-${uniqueSuffix}.png`, altText?: string) {
     const req = request(app.getHttpServer())
       .post('/images')
       .set('x-api-key', TEST_API_KEY)
@@ -92,6 +89,12 @@ describe('Images (e2e)', () => {
   });
 
   afterAll(async () => {
+    await prisma.client.product.deleteMany({
+      where: { slug: { contains: uniqueSuffix } },
+    });
+    await prisma.client.category.deleteMany({
+      where: { slug: { contains: uniqueSuffix } },
+    });
     await prisma.client.image.deleteMany({
       where: { originalName: { contains: uniqueSuffix } },
     });
@@ -114,8 +117,10 @@ describe('Images (e2e)', () => {
 
   describe('POST /images', () => {
     it('uploads a PNG image with metadata', async () => {
-      const res = await uploadPng(`upload-${uniqueSuffix}.png`, 'A red hat')
-        .expect(201);
+      const res = await uploadPng(
+        `upload-${uniqueSuffix}.png`,
+        'A red hat',
+      ).expect(201);
 
       expect(res.body.id).toBeDefined();
       expect(res.body.originalName).toBe(`upload-${uniqueSuffix}.png`);
@@ -125,6 +130,12 @@ describe('Images (e2e)', () => {
       expect(res.body.height).toBe(8);
       expect(res.body.altText).toBe('A red hat');
       expect(res.body.url).toBe(`/api/images/${res.body.id}/file`);
+      expect(res.body.usage).toEqual({
+        total: 0,
+        productCount: 0,
+        businessProfileLogo: false,
+        invoiceLogo: false,
+      });
       expect(res.body.createdAt).toBeDefined();
       expect(res.body.updatedAt).toBeDefined();
       expect(res.body.storageKey).toBeUndefined();
@@ -239,14 +250,14 @@ describe('Images (e2e)', () => {
         .expect(200);
 
       expect(
-        res.body.data.every(
-          (image: { originalName: string }) =>
-            image.originalName.toLowerCase().includes(`findme-${uniqueSuffix}`),
+        res.body.data.every((image: { originalName: string }) =>
+          image.originalName.toLowerCase().includes(`findme-${uniqueSuffix}`),
         ),
       ).toBe(true);
       expect(
         res.body.data.some(
-          (image: { originalName: string }) => image.originalName === originalName,
+          (image: { originalName: string }) =>
+            image.originalName === originalName,
         ),
       ).toBe(true);
     });
@@ -265,6 +276,105 @@ describe('Images (e2e)', () => {
         .set(auth())
         .query({ limit: 101 })
         .expect(400);
+    });
+
+    it('filters by MIME type and sorts by filename', async () => {
+      const firstName = `sort-a-${uniqueSuffix}.png`;
+      const secondName = `sort-b-${uniqueSuffix}.png`;
+
+      await uploadPng(secondName).expect(201);
+      await uploadPng(firstName).expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/images')
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .query({
+          search: `sort-`,
+          mimeType: 'image/png',
+          sortBy: 'originalName',
+          sortOrder: 'asc',
+          limit: 100,
+        })
+        .expect(200);
+
+      expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+      expect(
+        res.body.data.every(
+          (image: { mimeType: string }) => image.mimeType === 'image/png',
+        ),
+      ).toBe(true);
+
+      const names = res.body.data.map(
+        (image: { originalName: string }) => image.originalName,
+      );
+      const sortedNames = [...names].sort();
+      expect(names).toEqual(sortedNames);
+    });
+
+    it('rejects invalid type filters and sort fields', async () => {
+      await request(app.getHttpServer())
+        .get('/images')
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .query({ mimeType: 'text/plain' })
+        .expect(400);
+
+      await request(app.getHttpServer())
+        .get('/images')
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .query({ sortBy: 'hacked' })
+        .expect(400);
+    });
+
+    it('reports usage metadata for unreferenced images', async () => {
+      const created = await uploadPng(`usage-${uniqueSuffix}.png`).expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get(`/images/${created.body.id}`)
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .expect(200);
+
+      expect(res.body.usage).toEqual({
+        total: 0,
+        productCount: 0,
+        businessProfileLogo: false,
+        invoiceLogo: false,
+      });
+    });
+  });
+
+  describe('GET /images/stats', () => {
+    it('returns aggregate library statistics', async () => {
+      await uploadPng(`stats-a-${uniqueSuffix}.png`).expect(201);
+      await uploadPng(`stats-b-${uniqueSuffix}.png`).expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get('/images/stats')
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .expect(200);
+
+      expect(res.body.totalImages).toBeGreaterThanOrEqual(2);
+      expect(res.body.storageBytes).toBeGreaterThanOrEqual(64);
+      expect(res.body.recentUploads).toBeGreaterThanOrEqual(2);
+      expect(res.body.recentWindowDays).toBe(30);
+
+      const png = res.body.byType.find(
+        (entry: { mimeType: string }) => entry.mimeType === 'image/png',
+      );
+      expect(png).toBeDefined();
+      expect(png.count).toBeGreaterThanOrEqual(2);
+      expect(png.size).toBeGreaterThanOrEqual(64);
+    });
+
+    it('rejects statistics requests without a JWT', async () => {
+      await request(app.getHttpServer())
+        .get('/images/stats')
+        .set('x-api-key', TEST_API_KEY)
+        .expect(401);
     });
   });
 
@@ -330,7 +440,9 @@ describe('Images (e2e)', () => {
 
   describe('DELETE /images/:id', () => {
     it('deletes the image, its file, and returns 204', async () => {
-      const created = await uploadPng(`deleteme-${uniqueSuffix}.png`).expect(201);
+      const created = await uploadPng(`deleteme-${uniqueSuffix}.png`).expect(
+        201,
+      );
       const filesAfterUpload = await readdir(storageDir);
 
       await request(app.getHttpServer())
@@ -361,6 +473,68 @@ describe('Images (e2e)', () => {
         .set('x-api-key', TEST_API_KEY)
         .set(auth())
         .expect(404);
+    });
+
+    it('refuses to delete an image referenced by a product', async () => {
+      const created = await uploadPng(`protected-${uniqueSuffix}.png`).expect(
+        201,
+      );
+      const category = await prisma.client.category.create({
+        data: {
+          name: `Media category ${uniqueSuffix}`,
+          slug: `media-category-${uniqueSuffix}`,
+        },
+      });
+      const product = await prisma.client.product.create({
+        data: {
+          name: `Media product ${uniqueSuffix}`,
+          slug: `media-product-${uniqueSuffix}`,
+          categoryId: category.id,
+          sellingPrice: '10.00',
+          images: {
+            create: {
+              imageId: created.body.id,
+              isPrimary: true,
+            },
+          },
+        },
+      });
+
+      const detail = await request(app.getHttpServer())
+        .get(`/images/${created.body.id}`)
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .expect(200);
+
+      expect(detail.body.usage).toEqual({
+        total: 1,
+        productCount: 1,
+        businessProfileLogo: false,
+        invoiceLogo: false,
+      });
+
+      const conflict = await request(app.getHttpServer())
+        .delete(`/images/${created.body.id}`)
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .expect(409);
+
+      expect(conflict.body.message).toMatch(/still in use by 1 product/);
+
+      await request(app.getHttpServer())
+        .get(`/images/${created.body.id}/file`)
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .expect(200);
+
+      await prisma.client.product.delete({ where: { id: product.id } });
+      await prisma.client.category.delete({ where: { id: category.id } });
+
+      await request(app.getHttpServer())
+        .delete(`/images/${created.body.id}`)
+        .set('x-api-key', TEST_API_KEY)
+        .set(auth())
+        .expect(204);
     });
   });
 

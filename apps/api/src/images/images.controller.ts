@@ -41,6 +41,12 @@ export class ImagesController {
   }
 
   @Permissions('image:read')
+  @Get('stats')
+  getStats() {
+    return this.imagesService.getStats();
+  }
+
+  @Permissions('image:read')
   @Get(':id')
   findOne(@Param('id', ParseUUIDPipe) id: string) {
     return this.imagesService.findOne(id);
@@ -48,10 +54,7 @@ export class ImagesController {
 
   @Permissions('image:read')
   @Get(':id/file')
-  async download(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Res() res: Response,
-  ) {
+  async download(@Param('id', ParseUUIDPipe) id: string, @Res() res: Response) {
     const file = await this.imagesService.getFile(id);
 
     res.set({

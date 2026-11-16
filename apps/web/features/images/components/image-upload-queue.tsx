@@ -20,7 +20,7 @@ function UploadRow({ upload }: { upload: PendingUpload }) {
       <div className="flex items-baseline justify-between gap-3">
         <span
           title={upload.name}
-          className="text-foreground truncate text-xs font-medium"
+          className="text-foreground min-w-0 flex-1 truncate text-xs font-medium"
         >
           {upload.name}
         </span>

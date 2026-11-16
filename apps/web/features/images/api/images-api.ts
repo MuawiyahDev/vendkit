@@ -1,6 +1,14 @@
 import { ApiError, apiErrorFromPayload, apiFetch } from "@/lib/api/client";
 import type { PaginationMeta } from "@/lib/api/types";
 
+/** Where an image is referenced in VendKit. */
+export interface ImageUsage {
+  total: number;
+  productCount: number;
+  businessProfileLogo: boolean;
+  invoiceLogo: boolean;
+}
+
 /** Image shape returned by the NestJS images endpoints. */
 export interface Image {
   id: string;
@@ -11,6 +19,7 @@ export interface Image {
   height: number | null;
   altText: string | null;
   url: string;
+  usage: ImageUsage;
   createdAt: string;
   updatedAt: string;
 }
@@ -20,10 +29,37 @@ export interface ImageListResponse {
   meta: PaginationMeta;
 }
 
+/** Aggregate counts returned by the media-library statistics endpoint. */
+export interface ImageTypeUsage {
+  mimeType: string;
+  count: number;
+  size: number;
+}
+
+export interface ImageLibraryStats {
+  totalImages: number;
+  storageBytes: number;
+  recentUploads: number;
+  recentWindowDays: number;
+  byType: ImageTypeUsage[];
+}
+
+export type ImageMimeType =
+  "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+export type ImageTypeFilter = "all" | ImageMimeType;
+
+export type ImageSortField = "createdAt" | "originalName" | "size";
+
+export type ImageSortOrder = "asc" | "desc";
+
 export interface ImageListParams {
   page?: number;
   limit?: number;
   search?: string;
+  mimeType?: ImageMimeType;
+  sortBy?: ImageSortField;
+  sortOrder?: ImageSortOrder;
 }
 
 /**
@@ -96,12 +132,20 @@ export async function listImages(
   if (params.search) {
     searchParams.set("search", params.search);
   }
+  if (params.mimeType) {
+    searchParams.set("mimeType", params.mimeType);
+  }
+  if (params.sortBy) {
+    searchParams.set("sortBy", params.sortBy);
+  }
+  if (params.sortOrder) {
+    searchParams.set("sortOrder", params.sortOrder);
+  }
 
   const query = searchParams.toString();
-  return apiFetch<ImageListResponse>(
-    `/api/images${query ? `?${query}` : ""}`,
-    { signal },
-  );
+  return apiFetch<ImageListResponse>(`/api/images${query ? `?${query}` : ""}`, {
+    signal,
+  });
 }
 
 export async function getImage(
@@ -109,6 +153,12 @@ export async function getImage(
   { signal }: RequestOptions = {},
 ): Promise<Image> {
   return apiFetch<Image>(`/api/images/${id}`, { signal });
+}
+
+export async function getImageStats({
+  signal,
+}: RequestOptions = {}): Promise<ImageLibraryStats> {
+  return apiFetch<ImageLibraryStats>("/api/images/stats", { signal });
 }
 
 export async function deleteImage(id: string): Promise<void> {

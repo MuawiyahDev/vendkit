@@ -1,4 +1,5 @@
 import {
+  Images,
   LayoutDashboard,
   Package,
   ReceiptText,
@@ -41,7 +42,10 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Configuration",
-    items: [{ title: "Settings", href: "/settings", icon: Settings }],
+    items: [
+      { title: "Media", href: "/media", icon: Images },
+      { title: "Settings", href: "/settings", icon: Settings },
+    ],
   },
 ];
 

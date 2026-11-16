@@ -1,12 +1,13 @@
 import {
   BadRequestException,
+  ConflictException,
   InternalServerErrorException,
   Logger,
   NotFoundException,
   PayloadTooLargeException,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import type { Image } from '@repo/database';
+import { type Image, Prisma } from '@repo/database';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   IMAGE_STORAGE,
@@ -42,6 +43,26 @@ const imageFixture: Image = {
   updatedAt: new Date('2026-01-01T00:00:00.000Z'),
 };
 
+const unusedImageFixture = {
+  ...imageFixture,
+  _count: { products: 0 },
+  businessProfileLogo: null,
+  invoiceLogo: null,
+};
+
+const usedImageFixture = {
+  ...imageFixture,
+  _count: { products: 2 },
+  businessProfileLogo: { id: 'default' },
+  invoiceLogo: null,
+};
+
+const USAGE_INCLUDE = {
+  _count: { select: { products: true } },
+  businessProfileLogo: { select: { id: true } },
+  invoiceLogo: { select: { id: true } },
+};
+
 describe('ImagesService', () => {
   let service: ImagesService;
 
@@ -51,6 +72,8 @@ describe('ImagesService', () => {
         findUnique: vi.fn(),
         findMany: vi.fn(),
         count: vi.fn(),
+        aggregate: vi.fn(),
+        groupBy: vi.fn(),
         create: vi.fn(),
         delete: vi.fn(),
       },
@@ -119,6 +142,12 @@ describe('ImagesService', () => {
 
       expect(result.id).toBe(imageFixture.id);
       expect(result.url).toBe(`/api/images/${imageFixture.id}/file`);
+      expect(result.usage).toEqual({
+        total: 0,
+        productCount: 0,
+        businessProfileLogo: false,
+        invoiceLogo: false,
+      });
       expect(result).not.toHaveProperty('storageKey');
     });
 
@@ -183,10 +212,16 @@ describe('ImagesService', () => {
     });
 
     it('rejects files above the configured size limit', async () => {
-      const oversized = Buffer.concat([pngBuffer(), Buffer.alloc(MAX_FILE_SIZE)]);
+      const oversized = Buffer.concat([
+        pngBuffer(),
+        Buffer.alloc(MAX_FILE_SIZE),
+      ]);
 
       await expect(
-        service.create({ originalname: 'big.png', buffer: oversized }, emptyDto),
+        service.create(
+          { originalname: 'big.png', buffer: oversized },
+          emptyDto,
+        ),
       ).rejects.toBeInstanceOf(PayloadTooLargeException);
       expect(storageMock.save).not.toHaveBeenCalled();
     });
@@ -235,14 +270,15 @@ describe('ImagesService', () => {
   });
 
   describe('findAll', () => {
-    it('lists images newest first with pagination metadata', async () => {
-      prismaMock.client.image.findMany.mockResolvedValue([imageFixture]);
+    it('lists images newest first with usage and pagination metadata', async () => {
+      prismaMock.client.image.findMany.mockResolvedValue([unusedImageFixture]);
       prismaMock.client.image.count.mockResolvedValue(1);
 
       const result = await service.findAll({});
 
       expect(prismaMock.client.image.findMany).toHaveBeenCalledWith({
         where: {},
+        include: USAGE_INCLUDE,
         orderBy: { createdAt: 'desc' },
         skip: 0,
         take: 20,
@@ -254,6 +290,12 @@ describe('ImagesService', () => {
         totalPages: 1,
       });
       expect(result.data[0].url).toBe(`/api/images/${imageFixture.id}/file`);
+      expect(result.data[0].usage).toEqual({
+        total: 0,
+        productCount: 0,
+        businessProfileLogo: false,
+        invoiceLogo: false,
+      });
       expect(result.data[0]).not.toHaveProperty('storageKey');
     });
 
@@ -268,21 +310,132 @@ describe('ImagesService', () => {
         where: {
           originalName: { contains: 'Hat', mode: 'insensitive' },
         },
+        include: USAGE_INCLUDE,
         orderBy: { createdAt: 'desc' },
         skip: 10,
         take: 5,
       });
     });
+
+    it('filters by MIME type and honors an explicit sort', async () => {
+      prismaMock.client.image.findMany.mockResolvedValue([]);
+      prismaMock.client.image.count.mockResolvedValue(0);
+
+      await service.findAll({
+        mimeType: 'image/png',
+        sortBy: 'size',
+        sortOrder: 'asc',
+      });
+
+      expect(prismaMock.client.image.findMany).toHaveBeenCalledWith({
+        where: { mimeType: 'image/png' },
+        include: USAGE_INCLUDE,
+        orderBy: { size: 'asc' },
+        skip: 0,
+        take: 20,
+      });
+    });
+
+    it('defaults name sorting to ascending order', async () => {
+      prismaMock.client.image.findMany.mockResolvedValue([]);
+      prismaMock.client.image.count.mockResolvedValue(0);
+
+      await service.findAll({ sortBy: 'originalName' });
+
+      expect(prismaMock.client.image.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { originalName: 'asc' } }),
+      );
+    });
+
+    it('reports referenced images as in use', async () => {
+      prismaMock.client.image.findMany.mockResolvedValue([usedImageFixture]);
+      prismaMock.client.image.count.mockResolvedValue(1);
+
+      const result = await service.findAll({});
+
+      expect(result.data[0].usage).toEqual({
+        total: 3,
+        productCount: 2,
+        businessProfileLogo: true,
+        invoiceLogo: false,
+      });
+    });
+  });
+
+  describe('getStats', () => {
+    it('aggregates totals, storage, recent uploads, and file types', async () => {
+      prismaMock.client.image.count
+        .mockResolvedValueOnce(12)
+        .mockResolvedValueOnce(3);
+      prismaMock.client.image.aggregate.mockResolvedValue({
+        _sum: { size: 4096 },
+      });
+      prismaMock.client.image.groupBy.mockResolvedValue([
+        {
+          mimeType: 'image/png',
+          _count: { _all: 5 },
+          _sum: { size: 2048 },
+        },
+        {
+          mimeType: 'image/jpeg',
+          _count: { _all: 7 },
+          _sum: { size: 2048 },
+        },
+      ]);
+
+      const result = await service.getStats();
+
+      expect(prismaMock.client.image.count).toHaveBeenNthCalledWith(1);
+      expect(prismaMock.client.image.count).toHaveBeenNthCalledWith(2, {
+        where: { createdAt: { gte: expect.any(Date) } },
+      });
+      expect(prismaMock.client.image.aggregate).toHaveBeenCalledWith({
+        _sum: { size: true },
+      });
+      expect(result).toEqual({
+        totalImages: 12,
+        storageBytes: 4096,
+        recentUploads: 3,
+        recentWindowDays: 30,
+        byType: [
+          { mimeType: 'image/jpeg', count: 7, size: 2048 },
+          { mimeType: 'image/png', count: 5, size: 2048 },
+        ],
+      });
+    });
+
+    it('returns zero totals for an empty library', async () => {
+      prismaMock.client.image.count.mockResolvedValue(0);
+      prismaMock.client.image.aggregate.mockResolvedValue({
+        _sum: { size: null },
+      });
+      prismaMock.client.image.groupBy.mockResolvedValue([]);
+
+      const result = await service.getStats();
+
+      expect(result).toEqual({
+        totalImages: 0,
+        storageBytes: 0,
+        recentUploads: 0,
+        recentWindowDays: 30,
+        byType: [],
+      });
+    });
   });
 
   describe('findOne', () => {
-    it('returns image metadata', async () => {
-      prismaMock.client.image.findUnique.mockResolvedValue(imageFixture);
+    it('returns image metadata and usage', async () => {
+      prismaMock.client.image.findUnique.mockResolvedValue(usedImageFixture);
 
       const result = await service.findOne(imageFixture.id);
 
+      expect(prismaMock.client.image.findUnique).toHaveBeenCalledWith({
+        where: { id: imageFixture.id },
+        include: USAGE_INCLUDE,
+      });
       expect(result.id).toBe(imageFixture.id);
       expect(result.url).toBe(`/api/images/${imageFixture.id}/file`);
+      expect(result.usage.total).toBe(3);
     });
 
     it('throws NotFound for a missing image', async () => {
@@ -338,20 +491,34 @@ describe('ImagesService', () => {
   });
 
   describe('remove', () => {
-    it('deletes the file before the database record', async () => {
-      prismaMock.client.image.findUnique.mockResolvedValue(imageFixture);
-      storageMock.delete.mockResolvedValue(undefined);
+    it('deletes the database record before the stored file', async () => {
+      prismaMock.client.image.findUnique.mockResolvedValue(unusedImageFixture);
       prismaMock.client.image.delete.mockResolvedValue(imageFixture);
+      storageMock.delete.mockResolvedValue(undefined);
 
       await service.remove(imageFixture.id);
 
-      expect(storageMock.delete).toHaveBeenCalledWith(imageFixture.storageKey);
       expect(prismaMock.client.image.delete).toHaveBeenCalledWith({
         where: { id: imageFixture.id },
       });
+      expect(storageMock.delete).toHaveBeenCalledWith(imageFixture.storageKey);
       expect(
-        storageMock.delete.mock.invocationCallOrder[0],
-      ).toBeLessThan(prismaMock.client.image.delete.mock.invocationCallOrder[0]);
+        prismaMock.client.image.delete.mock.invocationCallOrder[0],
+      ).toBeLessThan(storageMock.delete.mock.invocationCallOrder[0]);
+    });
+
+    it('refuses to delete an image that is still in use', async () => {
+      prismaMock.client.image.findUnique.mockResolvedValue(usedImageFixture);
+
+      await expect(service.remove(imageFixture.id)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      await expect(service.remove(imageFixture.id)).rejects.toThrow(
+        /2 products/,
+      );
+
+      expect(prismaMock.client.image.delete).not.toHaveBeenCalled();
+      expect(storageMock.delete).not.toHaveBeenCalled();
     });
 
     it('throws NotFound and keeps the file when the image does not exist', async () => {
@@ -364,24 +531,48 @@ describe('ImagesService', () => {
       expect(prismaMock.client.image.delete).not.toHaveBeenCalled();
     });
 
-    it('does not delete the record when the file cannot be deleted', async () => {
-      prismaMock.client.image.findUnique.mockResolvedValue(imageFixture);
-      storageMock.delete.mockRejectedValue(new Error('permission denied'));
-
-      await expect(service.remove(imageFixture.id)).rejects.toBeInstanceOf(
-        InternalServerErrorException,
-      );
-      expect(prismaMock.client.image.delete).not.toHaveBeenCalled();
-    });
-
-    it('fails when the record cannot be deleted after the file is gone', async () => {
-      prismaMock.client.image.findUnique.mockResolvedValue(imageFixture);
-      storageMock.delete.mockResolvedValue(undefined);
+    it('keeps the file when the database record cannot be deleted', async () => {
+      prismaMock.client.image.findUnique.mockResolvedValue(unusedImageFixture);
       prismaMock.client.image.delete.mockRejectedValue(new Error('db down'));
 
       await expect(service.remove(imageFixture.id)).rejects.toBeInstanceOf(
         InternalServerErrorException,
       );
+      expect(storageMock.delete).not.toHaveBeenCalled();
+    });
+
+    it('maps a foreign-key failure to a conflict', async () => {
+      prismaMock.client.image.findUnique.mockResolvedValue(unusedImageFixture);
+      prismaMock.client.image.delete.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError(
+          'Foreign key constraint failed',
+          { code: 'P2003', clientVersion: 'test' },
+        ),
+      );
+
+      await expect(service.remove(imageFixture.id)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+      expect(storageMock.delete).not.toHaveBeenCalled();
+    });
+
+    it('restores the metadata record when storage deletion fails', async () => {
+      prismaMock.client.image.findUnique.mockResolvedValue(unusedImageFixture);
+      prismaMock.client.image.delete.mockResolvedValue(imageFixture);
+      storageMock.delete.mockRejectedValue(new Error('permission denied'));
+      prismaMock.client.image.create.mockResolvedValue(imageFixture);
+
+      await expect(service.remove(imageFixture.id)).rejects.toBeInstanceOf(
+        InternalServerErrorException,
+      );
+
+      expect(prismaMock.client.image.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          id: imageFixture.id,
+          storageKey: imageFixture.storageKey,
+          originalName: imageFixture.originalName,
+        }),
+      });
     });
   });
 });
