@@ -21,6 +21,7 @@ export const Permissions = {
   order: ['order:read', 'order:create', 'order:update', 'order:delete'],
   settingRead: ['setting:read'],
   settingUpdate: ['setting:update'],
+  backup: ['backup:read', 'backup:create', 'backup:delete', 'backup:restore'],
 } as const;
 
 export type Permission = (typeof Permissions)[keyof typeof Permissions][number];
@@ -50,5 +51,6 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     ...Permissions.order,
     ...Permissions.settingRead,
     ...Permissions.settingUpdate,
+    ...Permissions.backup,
   ] as readonly Permission[],
 };

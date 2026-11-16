@@ -6,6 +6,7 @@ import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { ApiKeyGuard } from './auth/guards/api-key.guard.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
+import { BackupsModule } from './backups/backups.module.js';
 import { BrandsModule } from './brands/brands.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { CustomersModule } from './customers/customers.module.js';
@@ -34,6 +35,7 @@ import { UsersModule } from './users/users.module.js';
     OrdersModule,
     DashboardModule,
     SettingsModule,
+    BackupsModule,
   ],
   controllers: [AppController],
   providers: [
