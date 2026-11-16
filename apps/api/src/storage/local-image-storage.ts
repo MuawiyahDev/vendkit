@@ -34,6 +34,11 @@ export class LocalImageStorage implements ImageStorage, OnModuleInit {
     await mkdir(this.baseDir, { recursive: true });
   }
 
+  /** Absolute directory used for locally stored media. Server-side only. */
+  getStorageDirectory(): string {
+    return this.baseDir;
+  }
+
   async save(key: string, data: Buffer): Promise<void> {
     await writeFile(this.pathFor(key), data);
   }

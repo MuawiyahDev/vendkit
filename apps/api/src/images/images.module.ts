@@ -1,14 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { MulterModule } from '@nestjs/platform-express';
-import { IMAGE_STORAGE } from '../storage/image-storage.js';
-import { LocalImageStorage } from '../storage/local-image-storage.js';
+import { StorageModule } from '../storage/storage.module.js';
 import { ImagesController } from './images.controller.js';
 import { ImagesService } from './images.service.js';
 import { IMAGE_MAX_FILE_SIZE, resolveImageMaxFileSize } from './images.constants.js';
 
 @Module({
   imports: [
+    StorageModule,
     MulterModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -22,8 +22,6 @@ import { IMAGE_MAX_FILE_SIZE, resolveImageMaxFileSize } from './images.constants
   controllers: [ImagesController],
   providers: [
     ImagesService,
-    LocalImageStorage,
-    { provide: IMAGE_STORAGE, useExisting: LocalImageStorage },
     {
       provide: IMAGE_MAX_FILE_SIZE,
       useFactory: resolveImageMaxFileSize,
