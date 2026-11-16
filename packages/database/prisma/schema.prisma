@@ -62,6 +62,23 @@ enum InvoiceDefaultStatus {
   ISSUED
 }
 
+enum BackupStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum BackupKind {
+  MANUAL
+  PRE_RESTORE
+}
+
+enum RestoreStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
 model User {
   id           String         @id @default(uuid())
   email        String         @unique
@@ -71,6 +88,8 @@ model User {
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
   refreshTokens RefreshToken[]
+  backups       Backup[]
+  restoreJobs   RestoreJob[]
 }
 
 model RefreshToken {
@@ -415,4 +434,50 @@ model DocumentSequence {
 
   @@unique([key, year])
   @@index([key])
+}
+
+/// A downloadable archive created by the backup module. Backup metadata is
+/// intentionally excluded from the archive payload so history survives a
+/// restore.
+model Backup {
+  id            String       @id @default(uuid())
+  kind          BackupKind   @default(MANUAL)
+  fileName      String
+  storageKey    String       @unique
+  sizeBytes     BigInt       @default(0)
+  status        BackupStatus @default(IN_PROGRESS)
+  progress      Int          @default(0)
+  formatVersion Int
+  appVersion    String       @db.VarChar(50)
+  dataCounts    Json?
+  errorMessage  String?
+  createdById   String?
+  createdBy     User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+  completedAt   DateTime?
+
+  @@index([createdAt])
+  @@index([status])
+}
+
+/// Tracks an asynchronous restore so the dashboard can show progress and a
+/// durable failure reason even if the connection drops.
+model RestoreJob {
+  id             String        @id @default(uuid())
+  status         RestoreStatus @default(IN_PROGRESS)
+  progress       Int           @default(0)
+  sourceFileName String
+  sourceBackupId String?
+  formatVersion  Int?
+  appVersion     String?       @db.VarChar(50)
+  sizeBytes      BigInt?
+  dataCounts     Json?
+  errorMessage   String?
+  createdById    String?
+  createdBy      User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  completedAt    DateTime?
+
+  @@index([createdAt])
+  @@index([status])
 }
