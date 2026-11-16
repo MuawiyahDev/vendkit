@@ -105,6 +105,7 @@ export async function nestFormData<T>(
 export interface NestFileResponse {
   mimeType: string;
   contentLength: string | null;
+  contentDisposition: string | null;
   stream: ReadableStream<Uint8Array> | null;
 }
 
@@ -141,6 +142,7 @@ export async function nestFetchFile(
   return {
     mimeType: response.headers.get("content-type") ?? "application/octet-stream",
     contentLength: response.headers.get("content-length"),
+    contentDisposition: response.headers.get("content-disposition"),
     stream: response.body,
   };
 }

@@ -15,6 +15,16 @@ export function isSettingsCategory(value: string): value is SettingsCategory {
   return (SETTINGS_CATEGORIES as readonly string[]).includes(value);
 }
 
+/**
+ * A settings navigation entry can either be a business-settings category or
+ * a dedicated tool page such as Backup & Restore.
+ */
+export type SettingsSection = SettingsCategory | "backup";
+
+export function isSettingsSection(value: string): value is SettingsSection {
+  return value === "backup" || isSettingsCategory(value);
+}
+
 export type CurrencyPosition = "BEFORE" | "AFTER";
 export type CurrencyDisplayFormat = "SYMBOL" | "CODE" | "SYMBOL_AND_CODE";
 export type TaxPricingMode = "INCLUSIVE" | "EXCLUSIVE";

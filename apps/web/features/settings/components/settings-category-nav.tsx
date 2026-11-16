@@ -4,11 +4,11 @@ import Link from "next/link";
 
 import { NativeSelect } from "@/components/shared/native-select";
 import { SETTINGS_CATEGORY_META } from "../constants/settings-categories";
-import type { SettingsCategory } from "../settings.types";
+import type { SettingsSection } from "../settings.types";
 import { cn } from "@/lib/utils";
 
 interface SettingsCategoryNavProps {
-  activeCategory: SettingsCategory;
+  activeCategory: SettingsSection;
   onNavigate: (href: string) => void;
 }
 

@@ -21,7 +21,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { isSettingsCategory, type SettingsCategory } from "../settings.types";
+import { isSettingsCategory, type SettingsSection } from "../settings.types";
 import { SettingsCategoryNav } from "./settings-category-nav";
 import { useSettingsData } from "./settings-provider";
 
@@ -63,8 +63,11 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
-  const activeCategory = useMemo<SettingsCategory>(() => {
+  const activeCategory = useMemo<SettingsSection>(() => {
     const segment = pathname.split("/")[2] ?? "";
+    if (segment === "backup") {
+      return "backup";
+    }
     return isSettingsCategory(segment) ? segment : "business-profile";
   }, [pathname]);
 
@@ -117,7 +120,7 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
         />
         <PageHeader
           title="Settings"
-          description="Manage the business details, defaults, and document settings used throughout VendKit."
+          description="Manage business details, defaults, document settings, and data protection for this VendKit installation."
         />
       </div>
 
@@ -125,7 +128,9 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
         <SettingsCategoryNav activeCategory={activeCategory} onNavigate={navigate} />
 
         <div className="flex min-w-0 flex-col gap-5">
-          {sessionStatus !== "loading" && !canEdit ? (
+          {activeCategory !== "backup" &&
+          sessionStatus !== "loading" &&
+          !canEdit ? (
             <Alert className="border-info/25 bg-info-soft text-info-soft-foreground [&>svg]:text-info-soft-foreground">
               <ShieldAlert aria-hidden="true" />
               <AlertDescription className="text-info-soft-foreground">
@@ -135,11 +140,14 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
             </Alert>
           ) : null}
 
-          {state.status === "loading" || sessionStatus === "loading" ? (
+          {activeCategory !== "backup" &&
+          (state.status === "loading" || sessionStatus === "loading") ? (
             <SettingsLoadingSkeleton />
           ) : null}
 
-          {sessionStatus !== "loading" && state.status === "error" ? (
+          {activeCategory !== "backup" &&
+          sessionStatus !== "loading" &&
+          state.status === "error" ? (
             <div className="flex flex-col items-start gap-3 rounded-xl border border-destructive/20 bg-destructive-soft/40 p-6">
               <Alert variant="destructive" className="w-full">
                 <AlertCircle aria-hidden="true" />
@@ -151,7 +159,8 @@ export function SettingsShell({ children }: { children: React.ReactNode }) {
             </div>
           ) : null}
 
-          {state.status === "success" && sessionStatus !== "loading"
+          {sessionStatus !== "loading" &&
+          (activeCategory === "backup" || state.status === "success")
             ? children
             : null}
         </div>

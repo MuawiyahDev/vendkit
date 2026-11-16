@@ -2,6 +2,7 @@ import {
   Bell,
   Building2,
   CreditCard,
+  DatabaseBackup,
   FileText,
   Globe2,
   Percent,
@@ -10,10 +11,10 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import type { SettingsCategory } from "../settings.types";
+import type { SettingsSection } from "../settings.types";
 
 export interface SettingsCategoryMeta {
-  value: SettingsCategory;
+  value: SettingsSection;
   title: string;
   description: string;
   href: string;
@@ -85,10 +86,18 @@ export const SETTINGS_CATEGORY_META: readonly SettingsCategoryMeta[] = [
     href: "/settings/notification",
     icon: Bell,
   },
+  {
+    value: "backup",
+    title: "Backup & Restore",
+    description:
+      "Download a complete copy of the business data or restore a previous backup.",
+    href: "/settings/backup",
+    icon: DatabaseBackup,
+  },
 ] as const;
 
 export function getSettingsCategoryMeta(
-  category: SettingsCategory,
+  category: SettingsSection,
 ): SettingsCategoryMeta {
   const meta = SETTINGS_CATEGORY_META.find((item) => item.value === category);
   if (!meta) {
