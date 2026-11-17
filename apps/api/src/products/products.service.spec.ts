@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { Prisma } from '@repo/database';
+import { InventoryService } from '../inventory/inventory.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { ProductsService } from './products.service.js';
 import type { CreateProductDto } from './dto/create-product.dto.js';
@@ -33,6 +34,7 @@ function productFixture(overrides: Record<string, unknown> = {}) {
     compareAtPrice: null,
     stockQuantity: 0,
     lowStockThreshold: null,
+    trackInventory: true,
     weight: null,
     length: null,
     width: null,
@@ -61,6 +63,11 @@ function foreignKeyViolation(): Error {
 
 describe('ProductsService', () => {
   let service: ProductsService;
+  const inventoryMock = {
+    recordInitialStock: vi.fn(),
+    setStockFromProductForm: vi.fn(),
+  };
+
   const prismaMock = {
     client: {
       $transaction: vi.fn(),
@@ -105,6 +112,7 @@ describe('ProductsService', () => {
       providers: [
         ProductsService,
         { provide: PrismaService, useValue: prismaMock },
+        { provide: InventoryService, useValue: inventoryMock },
       ],
     }).compile();
 

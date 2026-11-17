@@ -24,7 +24,7 @@ interface OrderItemsCardProps {
 
 /**
  * Ordered products with the unit price and line total captured at order
- * time. Items and prices cannot be edited after the order is created.
+ * time. Existing prices are preserved when quantities are edited.
  */
 export function OrderItemsCard({ items, currency }: OrderItemsCardProps) {
   return (

@@ -101,6 +101,13 @@ export const orderCreateSchema = z.object({
 
 export const orderUpdateSchema = z.object({
   customerId: z.string().optional(),
+  items: z
+    .array(orderItemFieldSchema)
+    .min(1, "Add at least one product to the order")
+    .max(
+      MAX_ORDER_ITEM_LINES,
+      `An order can contain at most ${MAX_ORDER_ITEM_LINES} lines`,
+    ),
   shippingName: optionalText(SHIPPING_NAME_MAX_LENGTH),
   shippingPhone: optionalPhone(),
   shippingAddress: optionalText(500),

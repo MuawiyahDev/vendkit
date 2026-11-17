@@ -23,7 +23,7 @@ export function InventoryAlerts({ alerts }: InventoryAlertsProps) {
           description="Current stock for active products"
           action={
             <Button type="button" variant="outline" size="sm" asChild>
-              <Link href="/products">Manage products</Link>
+              <Link href="/inventory">View inventory</Link>
             </Button>
           }
         />

@@ -11,9 +11,12 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import type { User } from '@repo/database';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Permissions } from '../auth/decorators/permissions.decorator.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto.js';
+import { CreateOrderReturnDto } from './dto/create-order-return.dto.js';
 import { QueryOrdersDto } from './dto/query-orders.dto.js';
 import { UpdateOrderDto } from './dto/update-order.dto.js';
 import { UpdateOrderPaymentStatusDto } from './dto/update-order-payment-status.dto.js';
@@ -26,8 +29,8 @@ export class OrdersController {
 
   @Permissions('order:create')
   @Post()
-  create(@Body() dto: CreateOrderDto) {
-    return this.ordersService.create(dto);
+  create(@Body() dto: CreateOrderDto, @CurrentUser() user: User) {
+    return this.ordersService.create(dto, user);
   }
 
   @Permissions('order:read')
@@ -53,8 +56,9 @@ export class OrdersController {
   update(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderDto,
+    @CurrentUser() user: User,
   ) {
-    return this.ordersService.update(id, dto);
+    return this.ordersService.update(id, dto, user);
   }
 
   @Permissions('order:update')
@@ -62,8 +66,19 @@ export class OrdersController {
   updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrderStatusDto,
+    @CurrentUser() user: User,
   ) {
-    return this.ordersService.updateStatus(id, dto);
+    return this.ordersService.updateStatus(id, dto, user);
+  }
+
+  @Permissions('order:update')
+  @Post(':id/returns')
+  recordReturn(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateOrderReturnDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.ordersService.recordReturn(id, dto, user);
   }
 
   @Permissions('order:create')
@@ -94,7 +109,10 @@ export class OrdersController {
   @Permissions('order:delete')
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.ordersService.remove(id);
+  remove(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.ordersService.remove(id, user);
   }
 }

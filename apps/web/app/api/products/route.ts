@@ -82,6 +82,24 @@ function buildListQueryString(searchParams: URLSearchParams): string | null {
     }
   }
 
+  const ids = searchParams.get("ids")?.trim();
+  if (ids) {
+    const values = ids.split(",").map((value) => value.trim());
+    if (
+      values.length === 0 ||
+      values.length > 100 ||
+      values.some(
+        (value) =>
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            value,
+          ),
+      )
+    ) {
+      return null;
+    }
+    params.set("ids", values.join(","));
+  }
+
   for (const param of ["isActive", "lowStock"] as const) {
     const value = searchParams.get(param);
     if (value !== null) {

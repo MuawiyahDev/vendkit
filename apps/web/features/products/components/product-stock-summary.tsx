@@ -20,6 +20,12 @@ export function ProductStockSummary({
   product,
   showSuffix = false,
 }: ProductStockSummaryProps) {
+  if (!product.trackInventory) {
+    return (
+      <span className="text-muted-foreground text-sm">Not tracked</span>
+    );
+  }
+
   const low = isLowStock(product);
 
   return (

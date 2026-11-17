@@ -129,6 +129,7 @@ export const productFormSchema = z.object({
   compareAtPrice: optionalDecimal(MAX_PRICE_DECIMAL_PLACES, priceMessage),
   stockQuantity: optionalInteger("Enter a valid whole number"),
   lowStockThreshold: optionalInteger("Enter a valid whole number"),
+  trackInventory: z.boolean(),
   weight: optionalDecimal(MAX_WEIGHT_DECIMAL_PLACES, weightMessage),
   length: optionalDecimal(MAX_PRICE_DECIMAL_PLACES, priceMessage),
   width: optionalDecimal(MAX_PRICE_DECIMAL_PLACES, priceMessage),

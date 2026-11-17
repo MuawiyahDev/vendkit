@@ -5,6 +5,7 @@ import {
   Plus,
   ReceiptText,
   Users,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -49,9 +50,15 @@ const QUICK_ACTIONS: QuickAction[] = [
     icon: Users,
   },
   {
+    href: "/inventory",
+    label: "Manage inventory",
+    description: "Adjust stock and review history",
+    icon: Warehouse,
+  },
+  {
     href: "/products",
     label: "View products",
-    description: "Manage stock and pricing",
+    description: "Manage catalog and pricing",
     icon: Package,
   },
 ];

@@ -4,8 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@repo/database';
+import { Prisma, type User } from '@repo/database';
 import { slugify } from '../common/utils/slug.util.js';
+import { InventoryService } from '../inventory/inventory.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { QueryProductsDto } from './dto/query-products.dto.js';
@@ -67,6 +68,7 @@ export interface ProductResponse {
   compareAtPrice: string | null;
   stockQuantity: number;
   lowStockThreshold: number | null;
+  trackInventory: boolean;
   weight: string | null;
   length: string | null;
   width: string | null;
@@ -91,9 +93,15 @@ export interface PaginatedProducts {
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly inventory: InventoryService,
+  ) {}
 
-  async create(dto: CreateProductDto): Promise<ProductResponse> {
+  async create(
+    dto: CreateProductDto,
+    actor: User | null = null,
+  ): Promise<ProductResponse> {
     const slug = slugify(dto.slug ?? dto.name);
 
     if (!slug) {
@@ -121,8 +129,8 @@ export class ProductsService {
     const finalSlug = await this.resolveCreateSlug(slug, dto.slug !== undefined);
 
     try {
-      const product = await this.prisma.client.$transaction(async (tx) =>
-        tx.product.create({
+      const product = await this.prisma.client.$transaction(async (tx) => {
+        const created = await tx.product.create({
           data: {
             name: dto.name,
             slug: finalSlug,
@@ -136,6 +144,7 @@ export class ProductsService {
             compareAtPrice: dto.compareAtPrice ?? null,
             stockQuantity: dto.stockQuantity ?? 0,
             lowStockThreshold: dto.lowStockThreshold ?? null,
+            trackInventory: dto.trackInventory ?? true,
             weight: dto.weight ?? null,
             length: dto.length ?? null,
             width: dto.width ?? null,
@@ -154,8 +163,14 @@ export class ProductsService {
               : {}),
           },
           include: PRODUCT_INCLUDE,
-        }),
-      );
+        });
+
+        if (created.trackInventory) {
+          await this.inventory.recordInitialStock(tx, created, actor);
+        }
+
+        return created;
+      });
 
       return this.toResponse(product);
     } catch (error) {
@@ -188,6 +203,10 @@ export class ProductsService {
           { sku: { contains: search, mode: 'insensitive' } },
         ],
       });
+    }
+
+    if (query.ids && query.ids.length > 0) {
+      conditions.push({ id: { in: query.ids } });
     }
 
     if (query.lowStock === true) {
@@ -258,7 +277,11 @@ export class ProductsService {
     return this.toResponse(product);
   }
 
-  async update(id: string, dto: UpdateProductDto): Promise<ProductResponse> {
+  async update(
+    id: string,
+    dto: UpdateProductDto,
+    actor: User | null = null,
+  ): Promise<ProductResponse> {
     const existing = await this.prisma.client.product.findUnique({
       where: { id },
       include: PRODUCT_INCLUDE,
@@ -331,12 +354,12 @@ export class ProductsService {
       data.compareAtPrice = dto.compareAtPrice;
     }
 
-    if (dto.stockQuantity !== undefined) {
-      data.stockQuantity = dto.stockQuantity;
-    }
-
     if (dto.lowStockThreshold !== undefined) {
       data.lowStockThreshold = dto.lowStockThreshold;
+    }
+
+    if (dto.trackInventory !== undefined) {
+      data.trackInventory = dto.trackInventory;
     }
 
     if (dto.weight !== undefined) {
@@ -359,16 +382,35 @@ export class ProductsService {
       data.isActive = dto.isActive;
     }
 
-    if (Object.keys(data).length === 0) {
+    const stockChanged =
+      dto.stockQuantity !== undefined &&
+      dto.stockQuantity !== existing.stockQuantity;
+
+    if (Object.keys(data).length === 0 && !stockChanged) {
       return this.toResponse(existing);
     }
 
     try {
-      const updated = await this.prisma.client.product.update({
-        where: { id },
-        data,
-        include: PRODUCT_INCLUDE,
-      });
+      const updated = stockChanged
+        ? await this.prisma.client.$transaction(async (tx) => {
+            await this.inventory.setStockFromProductForm(
+              tx,
+              id,
+              dto.stockQuantity as number,
+              actor,
+            );
+
+            return tx.product.update({
+              where: { id },
+              data,
+              include: PRODUCT_INCLUDE,
+            });
+          })
+        : await this.prisma.client.product.update({
+            where: { id },
+            data,
+            include: PRODUCT_INCLUDE,
+          });
 
       return this.toResponse(updated);
     } catch (error) {
@@ -621,6 +663,7 @@ export class ProductsService {
       compareAtPrice: product.compareAtPrice?.toString() ?? null,
       stockQuantity: product.stockQuantity,
       lowStockThreshold: product.lowStockThreshold,
+      trackInventory: product.trackInventory,
       weight: product.weight?.toString() ?? null,
       length: product.length?.toString() ?? null,
       width: product.width?.toString() ?? null,

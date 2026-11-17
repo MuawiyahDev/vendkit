@@ -46,6 +46,7 @@ export interface Product {
   compareAtPrice: string | null;
   stockQuantity: number;
   lowStockThreshold: number | null;
+  trackInventory: boolean;
   weight: string | null;
   length: string | null;
   width: string | null;
@@ -76,6 +77,8 @@ export interface ProductListParams {
   search?: string;
   categoryId?: string;
   brandId?: string;
+  /** Batch product lookup used by the order editor. */
+  ids?: string[];
   isActive?: boolean;
   lowStock?: boolean;
   minPrice?: number;
@@ -101,6 +104,7 @@ export interface ProductCreateInput {
   compareAtPrice?: number;
   stockQuantity?: number;
   lowStockThreshold?: number;
+  trackInventory?: boolean;
   weight?: number;
   length?: number;
   width?: number;
@@ -124,6 +128,7 @@ export interface ProductUpdateInput {
   compareAtPrice?: number | null;
   stockQuantity?: number;
   lowStockThreshold?: number | null;
+  trackInventory?: boolean;
   weight?: number | null;
   length?: number | null;
   width?: number | null;
@@ -155,6 +160,9 @@ export async function listProducts(
   }
   if (params.brandId) {
     searchParams.set("brandId", params.brandId);
+  }
+  if (params.ids && params.ids.length > 0) {
+    searchParams.set("ids", params.ids.join(","));
   }
   if (params.isActive !== undefined) {
     searchParams.set("isActive", String(params.isActive));

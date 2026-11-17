@@ -9,17 +9,22 @@ import {
   OrderStatus,
   PaymentStatus,
   Prisma,
+  StockMovementReason,
+  StockMovementType,
   type Order,
+  type User,
 } from '@repo/database';
 import {
   isPhoneLike,
   normalizePhone,
 } from '../common/utils/phone.util.js';
+import { InventoryService } from '../inventory/inventory.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { calculateShippingCharge } from '../settings/settings.utils.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto.js';
+import { CreateOrderReturnDto } from './dto/create-order-return.dto.js';
 import { QueryOrdersDto } from './dto/query-orders.dto.js';
 import { UpdateOrderDto } from './dto/update-order.dto.js';
 import { UpdateOrderPaymentStatusDto } from './dto/update-order-payment-status.dto.js';
@@ -59,9 +64,13 @@ export class OrdersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
+    private readonly inventory: InventoryService,
   ) {}
 
-  async create(dto: CreateOrderDto): Promise<OrderResponse> {
+  async create(
+    dto: CreateOrderDto,
+    actor: User | null = null,
+  ): Promise<OrderResponse> {
     const settings = await this.settings.getOrderRuntimeConfig();
 
     if (settings.requireCustomerInformation && !dto.customerId) {
@@ -99,6 +108,8 @@ export class OrdersService {
 
       try {
         const order = await this.prisma.client.$transaction(async (tx) => {
+          await this.inventory.lockProducts(tx, productIds);
+
           const products = await tx.product.findMany({
             where: { id: { in: productIds } },
             select: {
@@ -107,6 +118,8 @@ export class OrdersService {
               sku: true,
               sellingPrice: true,
               isActive: true,
+              stockQuantity: true,
+              trackInventory: true,
             },
           });
           const productById = new Map(products.map((p) => [p.id, p]));
@@ -141,6 +154,7 @@ export class OrdersService {
               unitPrice: product.sellingPrice,
               quantity,
               lineTotal,
+              trackedInventory: product.trackInventory,
             };
           });
 
@@ -170,23 +184,6 @@ export class OrdersService {
             .minus(discountAmount)
             .plus(shippingFee)
             .plus(taxAmount);
-
-          for (const line of lines) {
-            const deducted = await tx.product.updateMany({
-              where: {
-                id: line.productId,
-                isActive: true,
-                stockQuantity: { gte: line.quantity },
-              },
-              data: { stockQuantity: { decrement: line.quantity } },
-            });
-
-            if (deducted.count === 0) {
-              throw new ConflictException(
-                `Insufficient stock for product "${line.productName}"`,
-              );
-            }
-          }
 
           const customerId = dto.customerId ?? null;
 
@@ -223,7 +220,57 @@ export class OrdersService {
             shippingDefaults = customer;
           }
 
-          return tx.order.create({
+          const stockDeducted = lines.some(
+            (line) => line.trackedInventory,
+          );
+
+          const stockChanges: Array<{
+            product: { id: string; name: string; sku: string | null };
+            previousQuantity: number;
+            newQuantity: number;
+            quantity: number;
+          }> = [];
+
+          // Stock is validated and deducted when an order is placed. The row
+          // locks taken above keep quantities accurate under concurrency.
+          for (const line of lines) {
+            if (!line.trackedInventory) {
+              continue;
+            }
+
+            const product = productById.get(line.productId);
+            if (!product) {
+              throw new NotFoundException('One or more products not found');
+            }
+
+            const deducted = await tx.product.updateMany({
+              where: {
+                id: line.productId,
+                isActive: true,
+                stockQuantity: { gte: line.quantity },
+              },
+              data: { stockQuantity: { decrement: line.quantity } },
+            });
+
+            if (deducted.count === 0) {
+              throw new ConflictException(
+                `Insufficient stock for product "${line.productName}"`,
+              );
+            }
+
+            stockChanges.push({
+              product: {
+                id: product.id,
+                name: product.name,
+                sku: product.sku,
+              },
+              previousQuantity: product.stockQuantity,
+              newQuantity: product.stockQuantity - line.quantity,
+              quantity: line.quantity,
+            });
+          }
+
+          const created = await tx.order.create({
             data: {
               orderNumber,
               customerId,
@@ -236,7 +283,7 @@ export class OrdersService {
               taxAmount,
               totalAmount,
               amountPaid: new Prisma.Decimal(0),
-              stockDeducted: true,
+              stockDeducted,
               shippingName: dto.shippingName ?? shippingDefaults.name,
               shippingPhone: dto.shippingPhone ?? shippingDefaults.phone,
               shippingAddress:
@@ -254,11 +301,29 @@ export class OrdersService {
                   unitPrice: line.unitPrice,
                   quantity: line.quantity,
                   lineTotal: line.lineTotal,
+                  trackedInventory: line.trackedInventory,
                 })),
               },
             },
             include: ORDER_DETAIL_INCLUDE,
           });
+
+          for (const change of stockChanges) {
+            await this.inventory.recordMovement(tx, {
+              product: change.product,
+              type: StockMovementType.ORDER_PLACED,
+              reason: StockMovementReason.SALE,
+              previousQuantity: change.previousQuantity,
+              quantityChange: -change.quantity,
+              newQuantity: change.newQuantity,
+              orderId: created.id,
+              orderNumber: created.orderNumber,
+              userId: actor?.id ?? null,
+              userName: actor?.name ?? actor?.email ?? null,
+            });
+          }
+
+          return created;
         });
 
         return toOrderResponse(order);
@@ -391,7 +456,15 @@ export class OrdersService {
     return toOrderResponse(order);
   }
 
-  async update(id: string, dto: UpdateOrderDto): Promise<OrderResponse> {
+  async update(
+    id: string,
+    dto: UpdateOrderDto,
+    actor: User | null = null,
+  ): Promise<OrderResponse> {
+    if (dto.items !== undefined) {
+      return this.updateWithItems(id, dto, actor);
+    }
+
     const existing = await this.prisma.client.order.findUnique({
       where: { id },
       select: {
@@ -471,9 +544,355 @@ export class OrdersService {
     }
   }
 
+  /**
+   * Replaces order lines and applies only the stock delta. Existing lines
+   * keep their captured unit price; new lines use the current selling price.
+   * All product rows are locked so concurrent orders cannot oversell.
+   */
+  private async updateWithItems(
+    id: string,
+    dto: UpdateOrderDto,
+    actor: User | null,
+  ): Promise<OrderResponse> {
+    const settings = await this.settings.getOrderRuntimeConfig();
+
+    if (!settings.allowEditing) {
+      throw new ConflictException('Order editing is disabled in settings');
+    }
+
+    const quantities = mergeItemQuantities(dto.items ?? []);
+
+    return this.prisma.client.$transaction(async (tx) => {
+      const order = await this.lockOrder(tx, id);
+
+      if (order.status === OrderStatus.CANCELLED) {
+        throw new ConflictException('Cancelled orders cannot be modified');
+      }
+
+      const existingItems = await tx.orderItem.findMany({
+        where: { orderId: id },
+      });
+      const existingById = new Map(
+        existingItems.map((item) => [item.productId, item]),
+      );
+
+      const returnedGroups = await tx.stockMovement.groupBy({
+        by: ['productId'],
+        where: {
+          orderId: id,
+          type: StockMovementType.RETURN,
+        },
+        _sum: { quantityChange: true },
+      });
+      const returnedByProduct = new Map(
+        returnedGroups
+          .filter((group) => group.productId !== null)
+          .map((group) => [
+            group.productId as string,
+            group._sum.quantityChange ?? 0,
+          ]),
+      );
+
+      const productIds = [
+        ...new Set([...existingById.keys(), ...quantities.keys()]),
+      ];
+
+      await this.inventory.lockProducts(tx, productIds);
+
+      const products = await tx.product.findMany({
+        where: { id: { in: productIds } },
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          sellingPrice: true,
+          isActive: true,
+          stockQuantity: true,
+          trackInventory: true,
+        },
+      });
+      const productById = new Map(products.map((product) => [product.id, product]));
+
+      const lines: Array<{
+        productId: string;
+        productName: string;
+        sku: string | null;
+        unitPrice: Prisma.Decimal;
+        quantity: number;
+        lineTotal: Prisma.Decimal;
+        trackedInventory: boolean;
+      }> = [];
+
+      for (const productId of productIds) {
+        const product = productById.get(productId);
+        const existingItem = existingById.get(productId);
+        const newQuantity = quantities.get(productId) ?? 0;
+        const oldQuantity = existingItem?.quantity ?? 0;
+
+        if (newQuantity === 0 && oldQuantity === 0) {
+          continue;
+        }
+
+        if (!product) {
+          throw new NotFoundException('One or more products not found');
+        }
+
+        if (!existingItem && !product.isActive) {
+          throw new BadRequestException(
+            `Product "${product.name}" is not available for sale`,
+          );
+        }
+
+        const oldTracked = Boolean(
+          existingItem?.trackedInventory && order.stockDeducted,
+        );
+        const returnedQuantity = returnedByProduct.get(productId) ?? 0;
+
+        if (returnedQuantity > newQuantity) {
+          throw new BadRequestException(
+            `Cannot reduce "${existingItem?.productName ?? product.name}" below the ${returnedQuantity} units already returned`,
+          );
+        }
+
+        // The stock currently deducted for this line is the ordered
+        // quantity minus anything already returned. Only the difference
+        // between that and the new target is applied.
+        const currentDeducted = oldTracked
+          ? Math.max(oldQuantity - returnedQuantity, 0)
+          : 0;
+        const targetDeducted = existingItem
+          ? oldTracked
+            ? Math.max(newQuantity - returnedQuantity, 0)
+            : 0
+          : product.trackInventory
+            ? newQuantity
+            : 0;
+        const stockDelta = targetDeducted - currentDeducted;
+
+        if (stockDelta > 0) {
+          if (product.stockQuantity < stockDelta) {
+            throw new ConflictException(
+              `Insufficient stock for product "${existingItem?.productName ?? product.name}"`,
+            );
+          }
+
+          const newStock = product.stockQuantity - stockDelta;
+          await tx.product.update({
+            where: { id: product.id },
+            data: { stockQuantity: newStock },
+          });
+          await this.inventory.recordMovement(tx, {
+            product,
+            type: StockMovementType.ORDER_UPDATED,
+            reason: StockMovementReason.ORDER_EDITED,
+            previousQuantity: product.stockQuantity,
+            quantityChange: -stockDelta,
+            newQuantity: newStock,
+            note: 'Order quantity increased',
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            userId: actor?.id ?? null,
+            userName: actor?.name ?? actor?.email ?? null,
+          });
+          product.stockQuantity = newStock;
+        } else if (stockDelta < 0) {
+          const newStock = product.stockQuantity - stockDelta;
+          await tx.product.update({
+            where: { id: product.id },
+            data: { stockQuantity: newStock },
+          });
+          await this.inventory.recordMovement(tx, {
+            product,
+            type: StockMovementType.ORDER_UPDATED,
+            reason: StockMovementReason.ORDER_EDITED,
+            previousQuantity: product.stockQuantity,
+            quantityChange: -stockDelta,
+            newQuantity: newStock,
+            note: 'Order quantity decreased',
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            userId: actor?.id ?? null,
+            userName: actor?.name ?? actor?.email ?? null,
+          });
+          product.stockQuantity = newStock;
+        }
+
+        if (newQuantity === 0) {
+          continue;
+        }
+
+        const unitPrice = existingItem?.unitPrice ?? product.sellingPrice;
+        const trackedInventory = existingItem
+          ? oldTracked
+          : product.trackInventory;
+
+        lines.push({
+          productId: product.id,
+          productName: existingItem?.productName ?? product.name,
+          sku: existingItem?.sku ?? product.sku,
+          unitPrice,
+          quantity: newQuantity,
+          lineTotal: unitPrice.mul(newQuantity),
+          trackedInventory,
+        });
+      }
+
+      const subtotal = lines.reduce(
+        (sum, line) => sum.add(line.lineTotal),
+        new Prisma.Decimal(0),
+      );
+
+      if (order.discountAmount.gt(subtotal)) {
+        throw new BadRequestException(
+          'Order discount cannot exceed the new subtotal',
+        );
+      }
+
+      const totalAmount = subtotal
+        .minus(order.discountAmount)
+        .plus(order.shippingFee)
+        .plus(order.taxAmount);
+
+      await tx.orderItem.deleteMany({ where: { orderId: id } });
+
+      const updated = await tx.order.update({
+        where: { id },
+        data: {
+          subtotal,
+          totalAmount,
+          stockDeducted: lines.some((line) => line.trackedInventory),
+          items: {
+            create: lines.map((line) => ({
+              productId: line.productId,
+              productName: line.productName,
+              sku: line.sku,
+              unitPrice: line.unitPrice,
+              quantity: line.quantity,
+              lineTotal: line.lineTotal,
+              trackedInventory: line.trackedInventory,
+            })),
+          },
+        },
+        include: ORDER_DETAIL_INCLUDE,
+      });
+
+      return toOrderResponse(updated);
+    });
+  }
+
+  async recordReturn(
+    id: string,
+    dto: CreateOrderReturnDto,
+    actor: User | null = null,
+  ): Promise<OrderResponse> {
+    const quantities = mergeItemQuantities(dto.items);
+
+    return this.prisma.client.$transaction(async (tx) => {
+      const order = await this.lockOrder(tx, id);
+
+      if (order.status === OrderStatus.CANCELLED) {
+        throw new ConflictException(
+          'A cancelled order already released its stock and cannot accept returns',
+        );
+      }
+
+      const items = await tx.orderItem.findMany({
+        where: { orderId: id, productId: { in: [...quantities.keys()] } },
+      });
+      const itemByProduct = new Map(items.map((item) => [item.productId, item]));
+
+      for (const productId of quantities.keys()) {
+        if (!itemByProduct.has(productId)) {
+          throw new BadRequestException(
+            'A returned product is not part of this order',
+          );
+        }
+      }
+
+      await this.inventory.lockProducts(tx, [...quantities.keys()]);
+
+      const products = await tx.product.findMany({
+        where: { id: { in: [...quantities.keys()] } },
+        select: {
+          id: true,
+          name: true,
+          sku: true,
+          stockQuantity: true,
+          trackInventory: true,
+        },
+      });
+      const productById = new Map(products.map((product) => [product.id, product]));
+
+      for (const [productId, quantity] of quantities) {
+        const orderItem = itemByProduct.get(productId);
+        const product = productById.get(productId);
+
+        if (!orderItem || !product) {
+          throw new BadRequestException(
+            'A returned product is no longer available',
+          );
+        }
+
+        const priorReturns = await tx.stockMovement.aggregate({
+          where: {
+            orderId: order.id,
+            productId,
+            type: StockMovementType.RETURN,
+          },
+          _sum: { quantityChange: true },
+        });
+        const alreadyReturned = priorReturns._sum.quantityChange ?? 0;
+        const remaining = orderItem.quantity - alreadyReturned;
+
+        if (quantity > remaining) {
+          throw new BadRequestException(
+            `Only ${Math.max(remaining, 0)} units of "${orderItem.productName}" remain returnable`,
+          );
+        }
+
+        if (!orderItem.trackedInventory || !product.trackInventory) {
+          continue;
+        }
+
+        const newStock = product.stockQuantity + quantity;
+
+        await tx.product.update({
+          where: { id: product.id },
+          data: { stockQuantity: newStock },
+        });
+
+        await this.inventory.recordMovement(tx, {
+          product,
+          type: StockMovementType.RETURN,
+          reason: StockMovementReason.CUSTOMER_RETURN,
+          previousQuantity: product.stockQuantity,
+          quantityChange: quantity,
+          newQuantity: newStock,
+          note: dto.note ?? null,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          userId: actor?.id ?? null,
+          userName: actor?.name ?? actor?.email ?? null,
+        });
+      }
+
+      const updated = await tx.order.findUnique({
+        where: { id },
+        include: ORDER_DETAIL_INCLUDE,
+      });
+
+      if (!updated) {
+        throw new NotFoundException('Order not found');
+      }
+
+      return toOrderResponse(updated);
+    });
+  }
+
   async updateStatus(
     id: string,
     dto: UpdateOrderStatusDto,
+    actor: User | null = null,
   ): Promise<OrderResponse> {
     return this.prisma.client.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
@@ -530,18 +949,34 @@ export class OrdersService {
       }
 
       if (dto.status === OrderStatus.CANCELLED && order.stockDeducted) {
-        await this.restoreStockOnce(tx, id);
+        await this.restoreStockOnce(tx, {
+          order: {
+            id: updated.id,
+            orderNumber: updated.orderNumber,
+          },
+          type: StockMovementType.ORDER_CANCELLED,
+          reason: StockMovementReason.ORDER_CANCELLED,
+          note: dto.cancellationReason
+            ? `Order cancelled: ${dto.cancellationReason}`
+            : 'Order cancelled',
+          actor,
+        });
       }
 
       return toOrderResponse(updated);
     });
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, actor: User | null = null): Promise<void> {
     await this.prisma.client.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id },
-        select: { id: true, status: true, stockDeducted: true },
+        select: {
+          id: true,
+          orderNumber: true,
+          status: true,
+          stockDeducted: true,
+        },
       });
 
       if (!order) {
@@ -568,7 +1003,13 @@ export class OrdersService {
       }
 
       if (order.stockDeducted) {
-        await this.restoreStockOnce(tx, id);
+        await this.restoreStockOnce(tx, {
+          order: { id: order.id, orderNumber: order.orderNumber },
+          type: StockMovementType.ORDER_DELETED,
+          reason: StockMovementReason.ORDER_DELETED,
+          note: 'Order deleted before fulfilment',
+          actor,
+        });
       }
 
       await tx.orderPayment.deleteMany({ where: { orderId: id } });
@@ -742,10 +1183,18 @@ export class OrdersService {
 
   private async restoreStockOnce(
     tx: TransactionClient,
-    orderId: string,
+    input: {
+      order: { id: string; orderNumber: string };
+      type: StockMovementType;
+      reason: StockMovementReason;
+      note: string;
+      actor: User | null;
+    },
   ): Promise<void> {
+    // Claiming the flag atomically guarantees stock is released at most once
+    // even if retries or concurrent requests reach this point.
     const claimed = await tx.order.updateMany({
-      where: { id: orderId, stockDeducted: true },
+      where: { id: input.order.id, stockDeducted: true },
       data: { stockDeducted: false },
     });
 
@@ -754,15 +1203,89 @@ export class OrdersService {
     }
 
     const items = await tx.orderItem.findMany({
-      where: { orderId },
-      select: { productId: true, quantity: true },
+      where: { orderId: input.order.id },
+      select: {
+        productId: true,
+        quantity: true,
+        trackedInventory: true,
+      },
     });
+    const returnedGroups = await tx.stockMovement.groupBy({
+      by: ['productId'],
+      where: {
+        orderId: input.order.id,
+        type: StockMovementType.RETURN,
+      },
+      _sum: { quantityChange: true },
+    });
+    const returnedByProduct = new Map(
+      returnedGroups
+        .filter((group) => group.productId !== null)
+        .map((group) => [
+          group.productId as string,
+          group._sum.quantityChange ?? 0,
+        ]),
+    );
 
-    for (const item of items) {
+    const trackedItems = items
+      .filter((item) => item.trackedInventory)
+      .map((item) => ({
+        ...item,
+        remaining: item.quantity - (returnedByProduct.get(item.productId) ?? 0),
+      }))
+      .filter((item) => item.remaining > 0);
+
+    if (trackedItems.length === 0) {
+      return;
+    }
+
+    await this.inventory.lockProducts(
+      tx,
+      trackedItems.map((item) => item.productId),
+    );
+
+    const products = await tx.product.findMany({
+      where: { id: { in: trackedItems.map((item) => item.productId) } },
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        stockQuantity: true,
+      },
+    });
+    const productById = new Map(products.map((product) => [product.id, product]));
+
+    for (const item of trackedItems) {
+      const product = productById.get(item.productId);
+
+      if (!product) {
+        throw new NotFoundException(
+          'A product on this order no longer exists; stock cannot be released',
+        );
+      }
+
+      const newStock = product.stockQuantity + item.remaining;
+
       await tx.product.update({
-        where: { id: item.productId },
-        data: { stockQuantity: { increment: item.quantity } },
+        where: { id: product.id },
+        data: { stockQuantity: newStock },
       });
+
+      await this.inventory.recordMovement(tx, {
+        product,
+        type: input.type,
+        reason: input.reason,
+        previousQuantity: product.stockQuantity,
+        quantityChange: item.remaining,
+        newQuantity: newStock,
+        note: input.note,
+        orderId: input.order.id,
+        orderNumber: input.order.orderNumber,
+        userId: input.actor?.id ?? null,
+        userName: input.actor?.name ?? input.actor?.email ?? null,
+      });
+
+      product.stockQuantity = newStock;
     }
   }
 

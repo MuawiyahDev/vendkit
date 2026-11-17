@@ -16,6 +16,7 @@ import {
   type OrderPayment,
   type Product,
 } from '@repo/database';
+import { InventoryService } from '../inventory/inventory.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
@@ -52,6 +53,7 @@ const productFixture = (overrides: Partial<Product> = {}): Product => ({
   compareAtPrice: null,
   stockQuantity: 10,
   lowStockThreshold: null,
+  trackInventory: true,
   weight: null,
   length: null,
   width: null,
@@ -101,6 +103,7 @@ const orderItemFixture = (overrides: Partial<OrderItem> = {}): OrderItem => ({
   unitPrice: new Prisma.Decimal('250.00'),
   quantity: 2,
   lineTotal: new Prisma.Decimal('500.00'),
+  trackedInventory: true,
   createdAt: NOW,
   ...overrides,
 });
@@ -203,6 +206,9 @@ describe('OrdersService', () => {
       create: vi.fn(),
       findUnique: vi.fn(),
     },
+    stockMovement: {
+      groupBy: vi.fn(),
+    },
   };
 
   const prismaMock = {
@@ -233,8 +239,16 @@ describe('OrdersService', () => {
     isPaymentMethodEnabled: vi.fn(),
   };
 
+  const inventoryMock = {
+    lockProducts: vi.fn(),
+    recordMovement: vi.fn(),
+  };
+
   beforeEach(async () => {
     vi.clearAllMocks();
+
+    txMock.stockMovement.groupBy.mockResolvedValue([]);
+    inventoryMock.recordMovement.mockResolvedValue(undefined);
 
     settingsMock.getOrderRuntimeConfig.mockResolvedValue({
       currency: 'BDT',
@@ -259,6 +273,7 @@ describe('OrdersService', () => {
         OrdersService,
         { provide: PrismaService, useValue: prismaMock },
         { provide: SettingsService, useValue: settingsMock },
+        { provide: InventoryService, useValue: inventoryMock },
       ],
     }).compile();
 
@@ -846,8 +861,9 @@ describe('OrdersService', () => {
       );
       txMock.order.updateMany.mockResolvedValue({ count: 1 });
       txMock.orderItem.findMany.mockResolvedValue([
-        { productId: productFixture().id, quantity: 2 },
+        { productId: productFixture().id, quantity: 2, trackedInventory: true },
       ]);
+      txMock.product.findMany.mockResolvedValue([productFixture()]);
 
       await service.updateStatus(orderFixture().id, {
         status: OrderStatus.CANCELLED,
@@ -860,7 +876,7 @@ describe('OrdersService', () => {
       });
       expect(txMock.product.update).toHaveBeenCalledWith({
         where: { id: productFixture().id },
-        data: { stockQuantity: { increment: 2 } },
+        data: { stockQuantity: 12 },
       });
       expect(txMock.order.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -941,14 +957,15 @@ describe('OrdersService', () => {
       txMock.orderPayment.count.mockResolvedValue(0);
       txMock.order.updateMany.mockResolvedValue({ count: 1 });
       txMock.orderItem.findMany.mockResolvedValue([
-        { productId: productFixture().id, quantity: 2 },
+        { productId: productFixture().id, quantity: 2, trackedInventory: true },
       ]);
+      txMock.product.findMany.mockResolvedValue([productFixture()]);
 
       await expect(service.remove(orderFixture().id)).resolves.toBeUndefined();
 
       expect(txMock.product.update).toHaveBeenCalledWith({
         where: { id: productFixture().id },
-        data: { stockQuantity: { increment: 2 } },
+        data: { stockQuantity: 12 },
       });
       expect(txMock.orderPayment.deleteMany).toHaveBeenCalledWith({
         where: { orderId: orderFixture().id },

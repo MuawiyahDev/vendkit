@@ -29,6 +29,7 @@ export function toProductFormValues(product?: Product | null): ProductFormValues
         : null,
     stockQuantity: product?.stockQuantity ?? null,
     lowStockThreshold: product?.lowStockThreshold ?? null,
+    trackInventory: product?.trackInventory ?? true,
     weight: product?.weight !== null && product?.weight !== undefined ? Number(product.weight) : null,
     length: product?.length !== null && product?.length !== undefined ? Number(product.length) : null,
     width: product?.width !== null && product?.width !== undefined ? Number(product.width) : null,
@@ -66,6 +67,7 @@ export function toProductCreateInput(
     sellingPrice: values.sellingPrice,
     categoryId: values.categoryId,
     isActive: values.isActive,
+    trackInventory: values.trackInventory,
     ...(emptyToUndefined(values.slug) ? { slug: values.slug } : {}),
     ...(emptyToUndefined(values.sku) ? { sku: values.sku } : {}),
     ...(emptyToUndefined(values.shortDescription)
@@ -115,6 +117,7 @@ export function toProductUpdateInput(
     sellingPrice: values.sellingPrice,
     categoryId: values.categoryId,
     isActive: values.isActive,
+    trackInventory: values.trackInventory,
     ...(emptyToUndefined(values.slug) ? { slug: values.slug } : {}),
     sku: emptyToNull(values.sku),
     description: emptyToNull(values.description),

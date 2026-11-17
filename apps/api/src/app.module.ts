@@ -12,6 +12,7 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
 import { ImagesModule } from './images/images.module.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProductsModule } from './products/products.module.js';
@@ -32,6 +33,7 @@ import { UsersModule } from './users/users.module.js';
     ImagesModule,
     ProductsModule,
     CustomersModule,
+    InventoryModule,
     OrdersModule,
     DashboardModule,
     SettingsModule,

@@ -6,6 +6,8 @@ import {
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
+  StockMovementReason,
+  StockMovementType,
   TaxPricingMode,
 } from '@repo/database';
 import {
@@ -48,6 +50,7 @@ const strOptional: FieldRule = { kind: 'string', optional: true };
 const int: FieldRule = { kind: 'int' };
 const intOptional: FieldRule = { kind: 'int', optional: true };
 const bool: FieldRule = { kind: 'bool' };
+const boolOptional: FieldRule = { kind: 'bool', optional: true };
 const decimal: FieldRule = { kind: 'decimal' };
 const decimalOptional: FieldRule = { kind: 'decimal', optional: true };
 const date: FieldRule = { kind: 'date' };
@@ -109,6 +112,7 @@ const TABLE_FIELDS: Record<BackupTableName, Record<string, FieldRule>> = {
     compareAtPrice: decimalOptional,
     stockQuantity: int,
     lowStockThreshold: intOptional,
+    trackInventory: boolOptional,
     weight: decimalOptional,
     length: decimalOptional,
     width: decimalOptional,
@@ -173,6 +177,25 @@ const TABLE_FIELDS: Record<BackupTableName, Record<string, FieldRule>> = {
     unitPrice: decimal,
     quantity: int,
     lineTotal: decimal,
+    trackedInventory: boolOptional,
+    createdAt: date,
+  },
+  stockMovements: {
+    id: str,
+    productId: strOptional,
+    productName: str,
+    sku: strOptional,
+    type: enumRule(Object.values(StockMovementType)),
+    reason: enumRule(Object.values(StockMovementReason)),
+    previousQuantity: int,
+    quantityChange: int,
+    newQuantity: int,
+    note: strOptional,
+    orderId: strOptional,
+    orderNumber: strOptional,
+    userId: strOptional,
+    userName: strOptional,
+    idempotencyKey: strOptional,
     createdAt: date,
   },
   orderPayments: {
@@ -352,6 +375,14 @@ export function validateBackupData(
 
   for (const table of BACKUP_TABLE_NAMES) {
     const recordsValue = tablesValue[table];
+
+    // Backups created before inventory management existed do not contain
+    // this table. Treat them as having an empty audit trail.
+    if (recordsValue === undefined && table === 'stockMovements') {
+      tables[table] = [];
+      continue;
+    }
+
     if (!Array.isArray(recordsValue)) {
       throw new BackupValidationError(
         `Backup table "${table}" is missing or invalid`,
@@ -376,6 +407,16 @@ export function validateBackupData(
       }
 
       const record = validateRecord(table, recordValue);
+
+      // Columns added with inventory management are absent from older
+      // backups; preserve their database defaults instead of writing null.
+      if (table === 'products' && record.trackInventory === null) {
+        record.trackInventory = true;
+      }
+      if (table === 'orderItems' && record.trackedInventory === null) {
+        record.trackedInventory = true;
+      }
+
       const id = record.id as string;
 
       if (seenIds.has(id)) {
@@ -443,6 +484,15 @@ export function validateBackupRelations(
 
   for (const payment of data.tables.orderPayments) {
     assertReference(orderIds, payment.orderId, 'order');
+  }
+
+  for (const movement of data.tables.stockMovements) {
+    if (movement.productId !== null) {
+      assertReference(productIds, movement.productId, 'product');
+    }
+    if (movement.orderId !== null) {
+      assertReference(orderIds, movement.orderId, 'order');
+    }
   }
 
   for (const image of data.tables.images) {

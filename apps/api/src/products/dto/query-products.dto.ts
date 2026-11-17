@@ -1,5 +1,7 @@
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -48,6 +50,28 @@ export class QueryProductsDto {
   @IsString()
   @MaxLength(100)
   search?: string;
+
+  /**
+   * Optional id batch, used by the order editor to refresh the products on
+   * an existing order without issuing one request per line.
+   */
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (Array.isArray(value)) {
+      return value;
+    }
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+    }
+    return value;
+  })
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsUUID(undefined, { each: true })
+  ids?: string[];
 
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))

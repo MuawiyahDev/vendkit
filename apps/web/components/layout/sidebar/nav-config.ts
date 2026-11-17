@@ -7,6 +7,7 @@ import {
   Shapes,
   Tags,
   Users,
+  Warehouse,
   type LucideIcon,
 } from "lucide-react";
 
@@ -35,6 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Orders", href: "/orders", icon: ReceiptText },
       { title: "Products", href: "/products", icon: Package },
+      { title: "Inventory", href: "/inventory", icon: Warehouse },
       { title: "Categories", href: "/categories", icon: Tags },
       { title: "Brands", href: "/brands", icon: Shapes },
       { title: "Customers", href: "/customers", icon: Users },

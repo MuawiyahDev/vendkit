@@ -2,16 +2,23 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Controller,
+  useFieldArray,
+  useForm,
+  useWatch,
+} from "react-hook-form";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { CustomerFormDialog } from "@/features/customers/components/customer-form-dialog";
 import type { Customer } from "@/features/customers/api/customers-api";
+import type { Product } from "@/features/products/api/products-api";
 import { ApiError } from "@/lib/api/client";
 
 import { updateOrder, type Order } from "../api/orders-api";
+import { useOrderProducts } from "../hooks/use-order-products";
 import {
   orderUpdateSchema,
   type OrderUpdateFormPayload,
@@ -21,11 +28,13 @@ import { CustomerPickerDialog } from "./order-form/customer-picker-dialog";
 import { OrderCustomerSection } from "./order-form/order-customer-section";
 import { OrderFormActions } from "./order-form/order-form-actions";
 import { OrderFormSection } from "./order-form/order-form-section";
+import { OrderItemsField } from "./order-form/order-items-field";
 import { OrderNotesSection } from "./order-form/order-notes-section";
 import {
   OrderShippingPhoneField,
   OrderShippingSection,
 } from "./order-form/order-shipping-section";
+import { ProductPickerDialog } from "./order-form/product-picker-dialog";
 
 interface OrderEditFormProps {
   order: Order;
@@ -34,14 +43,22 @@ interface OrderEditFormProps {
 }
 
 /**
- * Editable order fields. The backend only allows the customer, shipping
- * details, and notes to change after creation — items and totals are
- * immutable, so they are shown read-only next to the form.
+ * Editable order fields. Quantities can be changed while the order is open;
+ * the backend applies only the stock delta and keeps captured unit prices for
+ * existing lines. Customer, shipping, and notes remain editable as before.
  */
 export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [extraProducts, setExtraProducts] = useState<Record<string, Product>>(
+    {},
+  );
+  const [isProductPickerOpen, setIsProductPickerOpen] = useState(false);
+
+  const { view: productsView, refresh: refreshProducts } = useOrderProducts(
+    order.items.map((item) => item.productId),
+  );
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     () =>
       order.customer ? {
@@ -65,13 +82,63 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
     control,
     register,
     handleSubmit,
+    getValues,
     reset,
+    setError,
     setValue,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<OrderUpdateFormValues, unknown, OrderUpdateFormPayload>({
     resolver: zodResolver(orderUpdateSchema),
     defaultValues: toDefaultValues(order),
   });
+
+  const itemsField = useFieldArray({ control, name: "items" });
+  const watchedItems = useWatch({ control, name: "items" }) ?? [];
+
+  const products = useMemo<Record<string, Product>>(
+    () => ({
+      ...(productsView.status === "success" ? productsView.products : {}),
+      ...extraProducts,
+    }),
+    [productsView, extraProducts],
+  );
+
+  const snapshots = useMemo(
+    () =>
+      Object.fromEntries(
+        order.items.map((item) => [
+          item.productId,
+          {
+            productName: item.productName,
+            sku: item.sku,
+            unitPrice: item.unitPrice,
+          },
+        ]),
+      ),
+    [order.items],
+  );
+
+  function handleProductAdd(product: Product) {
+    setExtraProducts((current) => ({ ...current, [product.id]: product }));
+
+    const existingIndex = itemsField.fields.findIndex(
+      (field) => field.productId === product.id,
+    );
+
+    if (existingIndex >= 0) {
+      const currentQuantity = getValues(`items.${existingIndex}.quantity`);
+      const nextQuantity =
+        (Number.isFinite(currentQuantity) ? currentQuantity : 0) + 1;
+      setValue(`items.${existingIndex}.quantity`, nextQuantity, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    } else {
+      itemsField.append({ productId: product.id, quantity: 1 });
+    }
+
+    setIsProductPickerOpen(false);
+  }
 
   // Warn before closing the tab or navigating away with unsaved changes.
   useEffect(() => {
@@ -106,6 +173,10 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
     try {
       const saved = await updateOrder(order.id, {
         ...customerPayload,
+        items: values.items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+        })),
         shippingName: values.shippingName,
         shippingPhone: values.shippingPhone,
         shippingAddress: values.shippingAddress,
@@ -115,6 +186,7 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
         internalNote: values.internalNote,
       });
       reset(toDefaultValues(saved));
+      refreshProducts();
       if (saved.customer) {
         setSelectedCustomer({
           id: saved.customer.id,
@@ -132,11 +204,25 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
       setSuccessMessage(`Changes to ${saved.orderNumber} were saved.`);
       onSaved(saved);
     } catch (error) {
-      setServerError(
-        error instanceof ApiError
-          ? error.message
-          : "Something went wrong. Please try again.",
-      );
+      if (error instanceof ApiError) {
+        const match = /^Insufficient stock for product "(.+)"$/.exec(
+          error.message,
+        );
+        if (match) {
+          const index = values.items.findIndex(
+            (item) => products[item.productId]?.name === match[1],
+          );
+          if (index >= 0) {
+            setError(`items.${index}.quantity`, {
+              type: "server",
+              message: `Insufficient stock for ${match[1]}`,
+            });
+          }
+        }
+        setServerError(error.message);
+        return;
+      }
+      setServerError("Something went wrong. Please try again.");
     }
   }
 
@@ -189,6 +275,45 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
               isSubmitting={isSubmitting}
               onChange={() => setIsCustomerPickerOpen(true)}
                 onCreateNew={() => setIsCreateCustomerOpen(true)}
+            />
+          </OrderFormSection>
+
+          <OrderFormSection
+            title="Products"
+            description="Update quantities or add products. Only the changed stock is applied."
+            action={
+              <button
+                type="button"
+                onClick={() => setIsProductPickerOpen(true)}
+                disabled={isSubmitting}
+                className="text-primary hover:text-primary/80 focus-visible:ring-ring/40 inline-flex w-fit items-center gap-1.5 rounded-sm text-sm font-medium transition-colors hover:underline hover:underline-offset-4 focus-visible:ring-[3px] focus-visible:outline-hidden"
+              >
+                Search products
+              </button>
+            }
+          >
+            {productsView.status === "error" ? (
+              <Alert variant="destructive">
+                <AlertCircle aria-hidden="true" />
+                <AlertDescription>
+                  Product stock could not be loaded: {productsView.message}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <OrderItemsField
+              fields={itemsField.fields}
+              items={watchedItems}
+              products={products}
+              snapshots={snapshots}
+              registerQuantity={(index) =>
+                register(`items.${index}.quantity`, { valueAsNumber: true })
+              }
+              quantityErrorFor={(index) =>
+                errors.items?.[index]?.quantity?.message
+              }
+              isSubmitting={isSubmitting}
+              onRemove={(index) => itemsField.remove(index)}
+              onAddProducts={() => setIsProductPickerOpen(true)}
             />
           </OrderFormSection>
 
@@ -264,6 +389,13 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
           handleCustomerSelect(customer);
         }}
       />
+
+      <ProductPickerDialog
+        open={isProductPickerOpen}
+        onOpenChange={setIsProductPickerOpen}
+        addedProductIds={itemsField.fields.map((field) => field.productId)}
+        onAdd={handleProductAdd}
+      />
     </form>
   );
 }
@@ -271,6 +403,10 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
 function toDefaultValues(order: Order): OrderUpdateFormValues {
   return {
     customerId: order.customer?.id ?? "",
+    items: order.items.map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+    })),
     shippingName: order.shippingName ?? "",
     shippingPhone: order.shippingPhone ?? "",
     shippingAddress: order.shippingAddress ?? "",

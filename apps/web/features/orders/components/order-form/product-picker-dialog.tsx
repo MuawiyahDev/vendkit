@@ -36,6 +36,9 @@ export function getPrimaryImageUrl(product: Product): string | null {
 }
 
 function StockBadge({ product }: { product: Product }) {
+  if (!product.trackInventory) {
+    return <Badge variant="secondary">Not tracked</Badge>;
+  }
   if (product.stockQuantity === 0) {
     return <Badge variant="destructive">Out of stock</Badge>;
   }
@@ -122,7 +125,8 @@ export function ProductPickerDialog({
             >
               {products.map((product) => {
                 const added = addedProductIds.includes(product.id);
-                const outOfStock = product.stockQuantity === 0;
+                const outOfStock =
+                  product.trackInventory && product.stockQuantity === 0;
 
                 return (
                   <li

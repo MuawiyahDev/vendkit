@@ -1,7 +1,7 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import type { UseFormRegister } from "react-hook-form";
+import type { UseFormRegisterReturn } from "react-hook-form";
 
 import { FieldError } from "@/components/shared/field-error";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,7 @@ import { ProductThumbnail } from "@/features/products/components/product-thumbna
 import type { Product } from "@/features/products/api/products-api";
 import { formatAmount } from "@/lib/format";
 
-import type {
-  OrderCreateFormValues,
-  OrderItemFieldValue,
-} from "../../schemas/orders.schemas";
+import type { OrderItemFieldValue } from "../../schemas/orders.schemas";
 import { MAX_ORDER_ITEM_QUANTITY } from "../../schemas/orders.schemas";
 import { getPrimaryImageUrl } from "./product-picker-dialog";
 
@@ -25,7 +22,13 @@ interface OrderItemsFieldProps {
   /** Live watched values, used to render stock warnings and line totals. */
   items: OrderItemFieldValue[];
   products: Record<string, Product>;
-  register: UseFormRegister<OrderCreateFormValues>;
+  /** Captured line details used until live product data finishes loading. */
+  snapshots?: Record<
+    string,
+    { productName: string; sku: string | null; unitPrice: string }
+  >;
+  /** Register callback for the quantity input of a given line. */
+  registerQuantity: (index: number) => UseFormRegisterReturn;
   quantityErrorFor: (index: number) => string | undefined;
   isSubmitting: boolean;
   onRemove: (index: number) => void;
@@ -41,7 +44,8 @@ export function OrderItemsField({
   fields,
   items,
   products,
-  register,
+  snapshots,
+  registerQuantity,
   quantityErrorFor,
   isSubmitting,
   onRemove,
@@ -58,16 +62,21 @@ export function OrderItemsField({
           {fields.map((field, index) => {
             const item = items[index];
             const product = item ? products[item.productId] : undefined;
+            const snapshot = item ? snapshots?.[item.productId] : undefined;
+            const productName =
+              product?.name ?? snapshot?.productName ?? "Unknown product";
+            const sku = product?.sku ?? snapshot?.sku ?? null;
+            const unitPrice = product
+              ? Number(product.sellingPrice)
+              : Number(snapshot?.unitPrice ?? 0);
             const quantity =
               item && Number.isFinite(item.quantity) ? item.quantity : 0;
-            const lineTotal = product
-              ? Math.round(
-                  (Number(product.sellingPrice) * quantity + Number.EPSILON) *
-                    100,
-                ) / 100
-              : 0;
+            const lineTotal =
+              Math.round((unitPrice * quantity + Number.EPSILON) * 100) / 100;
             const overStock =
-              product !== undefined && quantity > product.stockQuantity;
+              product !== undefined &&
+              product.trackInventory &&
+              quantity > product.stockQuantity;
             const quantityError = quantityErrorFor(index);
 
             return (
@@ -88,13 +97,13 @@ export function OrderItemsField({
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span
                     className="text-foreground truncate text-sm font-medium"
-                    title={product?.name}
+                    title={productName}
                   >
-                    {product?.name ?? "Unknown product"}
+                    {productName}
                   </span>
                   <span className="text-muted-foreground truncate text-xs">
-                    {product?.sku ? `SKU ${product.sku} · ` : ""}
-                    {formatAmount(product?.sellingPrice ?? 0)} per unit
+                    {sku ? `SKU ${sku} · ` : ""}
+                    {formatAmount(unitPrice)} per unit
                   </span>
                   {overStock ? (
                     <span className="text-destructive text-xs font-medium">
@@ -130,9 +139,7 @@ export function OrderItemsField({
                       }
                       disabled={isSubmitting}
                       className="w-20 text-right tabular-nums"
-                      {...register(`items.${index}.quantity`, {
-                        valueAsNumber: true,
-                      })}
+                      {...registerQuantity(index)}
                     />
                   </div>
 
@@ -151,7 +158,7 @@ export function OrderItemsField({
                     size="icon-sm"
                     onClick={() => onRemove(index)}
                     disabled={isSubmitting}
-                    aria-label={`Remove ${product?.name ?? "item"}`}
+                    aria-label={`Remove ${productName}`}
                     className="text-muted-foreground hover:text-destructive shrink-0"
                   >
                     <Trash2 aria-hidden="true" />

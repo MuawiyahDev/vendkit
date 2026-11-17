@@ -67,6 +67,7 @@ export function ProductSummaryPanel({
   const compareAtPrice = useWatch({ control, name: "compareAtPrice" });
   const stockQuantity = useWatch({ control, name: "stockQuantity" });
   const lowStockThreshold = useWatch({ control, name: "lowStockThreshold" });
+  const trackInventory = useWatch({ control, name: "trackInventory" }) ?? true;
   const isActive = useWatch({ control, name: "isActive" });
   const categoryId = useWatch({ control, name: "categoryId" });
   const brandId = useWatch({ control, name: "brandId" });
@@ -75,7 +76,8 @@ export function ProductSummaryPanel({
   const category = categories.find((item) => item.id === categoryId);
   const brand = brands.find((item) => item.id === brandId);
   const stock = stockQuantity ?? 0;
-  const isLow = isLowStockValue(stock, lowStockThreshold ?? null);
+  const isLow =
+    trackInventory && isLowStockValue(stock, lowStockThreshold ?? null);
   const displayName = name.trim();
 
   return (
@@ -146,8 +148,13 @@ export function ProductSummaryPanel({
               label="Stock"
               value={
                 <span className="tabular-nums">
-                  {Number.isFinite(stock) ? stock : "—"}
-                  {lowStockThreshold !== null &&
+                  {!trackInventory
+                    ? "Not tracked"
+                    : Number.isFinite(stock)
+                      ? stock
+                      : "—"}
+                  {trackInventory &&
+                  lowStockThreshold !== null &&
                   lowStockThreshold !== undefined ? (
                     <span className="text-muted-foreground font-normal">
                       {" "}

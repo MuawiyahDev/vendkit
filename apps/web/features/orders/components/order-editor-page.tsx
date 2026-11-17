@@ -99,7 +99,7 @@ export function OrderEditorPage({ orderId }: OrderEditorPageProps) {
           <Breadcrumb items={breadcrumbItems} />
           <PageHeader
             title="Create order"
-            description="Pick the customer and products, add charges or notes, and place the order. Stock is reserved as soon as it is created."
+            description="Pick the customer and products, add charges or notes, and place the order. Stock is deducted as soon as it is created."
             actions={backButton}
           />
         </div>
@@ -187,7 +187,7 @@ export function OrderEditorPage({ orderId }: OrderEditorPageProps) {
         <Breadcrumb items={breadcrumbItems} />
         <PageHeader
           title={`Edit ${order.orderNumber}`}
-          description="Update the customer, shipping details, or notes. Products and totals are locked after an order is placed."
+          description="Update products, quantities, customer, shipping details, or notes. Stock changes are recorded automatically."
           actions={backButton}
         />
       </div>
@@ -203,10 +203,6 @@ export function OrderEditorPage({ orderId }: OrderEditorPageProps) {
         <div className="flex w-full flex-col gap-6">
           <OrderSummaryCard order={order} />
           <OrderItemsCard items={order.items} currency={order.currency} />
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            Products, quantities, and totals cannot be edited after an order
-            is placed. Cancel the order and create a new one instead.
-          </p>
         </div>
       </div>
     </div>

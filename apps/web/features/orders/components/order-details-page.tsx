@@ -9,6 +9,7 @@ import {
   ArrowRight,
   Pencil,
   ReceiptText,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { useCallback, useState } from "react";
@@ -40,6 +41,7 @@ import { OrderItemsCard } from "./order-items-card";
 import { OrderNotesCard } from "./order-notes-card";
 import { OrderPaymentFormDialog } from "./order-payment-form-dialog";
 import { OrderPaymentsCard } from "./order-payments-card";
+import { OrderReturnDialog } from "./order-return-dialog";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
@@ -117,6 +119,7 @@ export function OrderDetailsPage() {
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
+  const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [updatingPaymentId, setUpdatingPaymentId] = useState<string | null>(
     null,
   );
@@ -244,6 +247,12 @@ export function OrderDetailsPage() {
     refresh();
   }
 
+  function handleReturnSuccess() {
+    setIsReturnOpen(false);
+    publishFeedback("Returned items were added back to stock.");
+    refresh();
+  }
+
   async function handlePaymentStatusChange(
     payment: OrderPayment,
     status: OrderPaymentStatus,
@@ -315,6 +324,16 @@ export function OrderDetailsPage() {
               orderId={order.id}
               orderNumber={order.orderNumber}
             />
+            {order.status !== "CANCELLED" && order.items.length > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsReturnOpen(true)}
+              >
+                <RotateCcw aria-hidden="true" />
+                Record return
+              </Button>
+            ) : null}
             {editable ? (
               <Button type="button" variant="outline" asChild>
                 <Link href={`/orders/${order.id}/edit`}>
@@ -401,6 +420,15 @@ export function OrderDetailsPage() {
         onOpenChange={setIsPaymentOpen}
         onSuccess={handlePaymentSuccess}
       />
+
+      {isReturnOpen ? (
+        <OrderReturnDialog
+          order={order}
+          open
+          onOpenChange={setIsReturnOpen}
+          onSuccess={handleReturnSuccess}
+        />
+      ) : null}
 
       <OrderWhatsAppDialog
         order={order}

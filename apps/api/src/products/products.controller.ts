@@ -12,6 +12,8 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
+import type { User } from '@repo/database';
+import { CurrentUser } from '../auth/decorators/current-user.decorator.js';
 import { Permissions } from '../auth/decorators/permissions.decorator.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { QueryProductsDto } from './dto/query-products.dto.js';
@@ -25,8 +27,8 @@ export class ProductsController {
 
   @Permissions('product:create')
   @Post()
-  create(@Body() dto: CreateProductDto) {
-    return this.productsService.create(dto);
+  create(@Body() dto: CreateProductDto, @CurrentUser() user: User) {
+    return this.productsService.create(dto, user);
   }
 
   @Permissions('product:read')
@@ -43,8 +45,12 @@ export class ProductsController {
 
   @Permissions('product:update')
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateProductDto) {
-    return this.productsService.update(id, dto);
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateProductDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.productsService.update(id, dto, user);
   }
 
   @Permissions('product:delete')

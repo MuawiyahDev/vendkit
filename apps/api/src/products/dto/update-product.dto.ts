@@ -100,6 +100,10 @@ export class UpdateProductDto {
   lowStockThreshold?: number | null;
 
   @IsOptional()
+  @IsBoolean()
+  trackInventory?: boolean;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber({ maxDecimalPlaces: MAX_WEIGHT_DECIMAL_PLACES })
   @Min(0)

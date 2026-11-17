@@ -164,11 +164,12 @@ export interface OrderCreateInput {
 }
 
 /**
- * Payload accepted by the NestJS UpdateOrderDto. Line items and monetary
- * totals cannot be edited after creation; `null` clears an optional field.
+ * Payload accepted by the NestJS UpdateOrderDto. When `items` is provided it
+ * replaces the order lines and only the stock delta is applied.
  */
 export interface OrderUpdateInput {
   customerId?: string;
+  items?: { productId: string; quantity: number }[];
   shippingName?: string | null;
   shippingPhone?: string | null;
   shippingAddress?: string | null;
@@ -276,6 +277,21 @@ export async function updateOrderStatus(
 
 export async function deleteOrder(id: string): Promise<void> {
   await apiFetch<undefined>(`/api/orders/${id}`, { method: "DELETE" });
+}
+
+export interface OrderReturnInput {
+  items: { productId: string; quantity: number }[];
+  note?: string | null;
+}
+
+export async function recordOrderReturn(
+  id: string,
+  input: OrderReturnInput,
+): Promise<Order> {
+  return apiFetch<Order>(`/api/orders/${id}/returns`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }
 
 export async function createOrderPayment(

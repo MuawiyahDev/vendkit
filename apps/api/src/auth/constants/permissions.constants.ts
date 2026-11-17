@@ -19,6 +19,7 @@ export const Permissions = {
     'customer:delete',
   ],
   order: ['order:read', 'order:create', 'order:update', 'order:delete'],
+  inventory: ['inventory:read', 'inventory:update'],
   settingRead: ['setting:read'],
   settingUpdate: ['setting:update'],
   backup: ['backup:read', 'backup:create', 'backup:delete', 'backup:restore'],
@@ -39,6 +40,7 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     ...Permissions.product,
     ...Permissions.customer,
     ...Permissions.order,
+    ...Permissions.inventory,
     ...Permissions.settingRead,
   ] as readonly Permission[],
   [Role.ADMIN]: [
@@ -49,6 +51,7 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     ...Permissions.product,
     ...Permissions.customer,
     ...Permissions.order,
+    ...Permissions.inventory,
     ...Permissions.settingRead,
     ...Permissions.settingUpdate,
     ...Permissions.backup,

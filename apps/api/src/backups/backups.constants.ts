@@ -38,6 +38,7 @@ export const BACKUP_TABLE_NAMES = [
   'orders',
   'orderItems',
   'orderPayments',
+  'stockMovements',
   'businessProfileSettings',
   'invoiceSettings',
   'regionalSettings',
@@ -53,6 +54,7 @@ export type BackupTableName = (typeof BACKUP_TABLE_NAMES)[number];
 
 /** Child-first order used inside the restore transaction. */
 export const BACKUP_DELETE_ORDER: readonly BackupTableName[] = [
+  'stockMovements',
   'orderPayments',
   'orderItems',
   'productImages',

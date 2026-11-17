@@ -186,7 +186,10 @@ export function OrderCreateForm({ onCreated, onCancel }: OrderCreateFormProps) {
 
     for (const [index, item] of values.items.entries()) {
       const product = productMap[item.productId];
-      if (product && item.quantity > product.stockQuantity) {
+      if (
+        product?.trackInventory &&
+        item.quantity > product.stockQuantity
+      ) {
         setError(`items.${index}.quantity`, {
           type: "manual",
           message: `Only ${product.stockQuantity} units are in stock`,
@@ -300,7 +303,7 @@ export function OrderCreateForm({ onCreated, onCancel }: OrderCreateFormProps) {
 
             <OrderFormSection
               title="Products"
-              description="Add the products being sold. Prices are taken from the current selling price and stock is reserved when the order is created."
+              description="Add the products being sold. Prices are taken from the current selling price and stock is deducted when the order is created."
               action={
                 <button
                   type="button"
@@ -316,8 +319,10 @@ export function OrderCreateForm({ onCreated, onCancel }: OrderCreateFormProps) {
                 fields={itemsField.fields}
                 items={watchedItems}
                 products={productMap}
-                register={register}
-                                quantityErrorFor={(index) =>
+                registerQuantity={(index) =>
+                  register(`items.${index}.quantity`, { valueAsNumber: true })
+                }
+                quantityErrorFor={(index) =>
                   errors.items?.[index]?.quantity?.message
                 }
                 isSubmitting={isSubmitting}

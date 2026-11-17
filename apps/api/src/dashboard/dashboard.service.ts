@@ -120,7 +120,11 @@ export class DashboardService {
       this.prisma.client.product.count({ where: { isActive: true } }),
       this.countLowStockProducts(),
       this.prisma.client.product.count({
-        where: { isActive: true, stockQuantity: { lte: 0 } },
+        where: {
+          isActive: true,
+          trackInventory: true,
+          stockQuantity: { lte: 0 },
+        },
       }),
       this.prisma.client.order.groupBy({
         by: ['status'],
@@ -204,6 +208,7 @@ export class DashboardService {
     return this.prisma.client.product.count({
       where: {
         isActive: true,
+        trackInventory: true,
         lowStockThreshold: { not: null },
         stockQuantity: {
           gt: 0,
@@ -431,8 +436,12 @@ export class DashboardService {
         where: {
           isActive: true,
           OR: [
-            { stockQuantity: { lte: 0 } },
             {
+              trackInventory: true,
+              stockQuantity: { lte: 0 },
+            },
+            {
+              trackInventory: true,
               lowStockThreshold: { not: null },
               stockQuantity: {
                 gt: 0,

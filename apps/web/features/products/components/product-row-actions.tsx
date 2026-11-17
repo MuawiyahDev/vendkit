@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   LoaderCircle,
   MoreHorizontal,
@@ -7,6 +8,7 @@ import {
   Power,
   PowerOff,
   Trash2,
+  Warehouse,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -63,6 +65,12 @@ export function ProductRowActions({
         >
           <Pencil aria-hidden="true" />
           Edit product
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/inventory">
+            <Warehouse aria-hidden="true" />
+            Manage stock
+          </Link>
         </DropdownMenuItem>
         <DropdownMenuItem
           disabled={isStatusUpdatePending}
