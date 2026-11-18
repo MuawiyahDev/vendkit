@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 
 import { Card } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Input } from "@/components/ui/input";
 import { useSettingsDirty } from "../hooks/use-settings-dirty";
 import { useSettingsMutation } from "../hooks/use-settings-mutation";
@@ -95,6 +96,16 @@ export function NotificationSettingsForm({
               error={mutation.error}
               onDismissSuccess={mutation.clearSuccess}
             />
+
+            <Alert>
+              <Mail aria-hidden="true" />
+              <AlertDescription>
+                Email delivery is not connected yet in this release. These
+                preferences are saved for when an email provider is configured,
+                but no messages are sent today. Use the WhatsApp hand-off on an
+                order to contact customers.
+              </AlertDescription>
+            </Alert>
 
             <fieldset disabled={readOnly} className="min-w-0">
               <Card className="gap-0 overflow-hidden py-0">
