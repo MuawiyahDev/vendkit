@@ -1,159 +1,183 @@
-# Turborepo starter
+# VendKit
 
-This Turborepo starter is maintained by the Turborepo core team.
+Self-hosted order management for social-commerce sellers. VendKit keeps
+Facebook, Instagram, WhatsApp, and phone orders in one place: products,
+customers, stock, payments, invoices, and backups — on your own server, with
+no subscription.
 
-## Using this example
+## Features
 
-Run the following command:
+- **Orders** — create, edit, cancel, filter, and search orders; record
+  payments; track outstanding balances; record returns back into stock.
+- **Invoices** — persistent, numbered invoices per order. Totals, business
+  details, and terms are captured when the invoice is created, then rendered
+  as a downloadable PDF. Drafts can be issued later; issued invoices can be
+  cancelled without reusing numbers.
+- **Products and catalog** — categories, brands, SKUs, images, and pricing.
+- **Inventory** — stock tracking with an immutable movement history, low-stock
+  alerts, and automatic deduction when orders are placed.
+- **Customers** — addresses, notes, and full order history.
+- **Team** — administrators can create members and administrators, and reset
+  passwords. Public sign-up is closed after the first account.
+- **Media library** — upload, browse, and reuse product and branding images.
+- **WhatsApp hand-off** — pre-filled order messages you can send to a customer
+  from the order page.
+- **Dashboard** — revenue, order status, best sellers, and stock alerts.
+- **Settings** — business profile, invoice branding and numbering, regional
+  formats, tax, order defaults, payments, shipping, and notifications.
+- **Backup and restore** — download a complete archive of business data and
+  media, and restore it later. Invoices are included.
 
-```sh
-npx create-turbo@latest
-```
+## Requirements
 
-## What's inside?
+- Node.js 24+
+- pnpm 11+
+- PostgreSQL 16+ (or Docker)
 
-This Turborepo includes the following packages/apps:
+## Quick start with Docker
 
-### Apps and Packages
+1. Copy the environment template and set real secrets:
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `@next/eslint-plugin-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+   ```sh
+   cp .env.example .env
+   openssl rand -hex 32   # JWT_SECRET
+   openssl rand -hex 32   # API_KEY
+   ```
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+2. Start the stack:
 
-### Utilities
+   ```sh
+   docker compose up -d --build
+   ```
 
-This Turborepo has some additional tools already setup for you:
+3. Open <http://localhost:3000>. The first account you create becomes the
+   administrator. After that, public registration is closed by default.
 
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
+Database migrations run automatically when the API container starts. Business
+data is stored in the `vendkit-db` volume; uploaded images and backups are
+stored in `vendkit-data`.
 
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo build
-pnpm exec turbo build
-pnpm exec turbo build
-```
-
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
-```
-
-Without global `turbo`:
+To upgrade:
 
 ```sh
-npx turbo build --filter=docs
-pnpm exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+git pull
+docker compose up -d --build
 ```
 
-### Develop
-
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+## Local development
 
 ```sh
-cd my-turborepo
-turbo dev
+pnpm install
+cp apps/api/.env.example apps/api/.env
+cp packages/database/.env.example packages/database/.env
+cp apps/web/.env.example apps/web/.env
 ```
 
-Without global `turbo`, use your package manager:
+Set the same `API_KEY` in `apps/api/.env` and `apps/web/.env`, then:
 
 ```sh
-cd my-turborepo
-npx turbo dev
-pnpm exec turbo dev
-pnpm exec turbo dev
+pnpm db:migrate
+pnpm dev
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+- Web app: <http://localhost:3000>
+- API: <http://localhost:4000/api>
+- Health check: <http://localhost:4000/api/health>
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## First run
 
-```sh
-turbo dev --filter=web
+1. Open `/sign-up` and create the first account. It is created as an
+   **administrator**.
+2. Open **Settings → Business profile** and fill in the details that appear on
+   invoices.
+3. Open **Settings → Invoice** to choose numbering, currency display, due
+   period, default status, and terms.
+4. Add categories, brands, and products before creating orders.
+
+Public registration stays closed after the first account. Set
+`ALLOW_PUBLIC_REGISTRATION=true` only if you intentionally want self-service
+sign-up. Administrators can create members, choose their role, and reset their
+passwords from **Team** in the sidebar.
+
+## Environment variables
+
+### API (`apps/api/.env`)
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | PostgreSQL connection string. |
+| `JWT_SECRET` | yes | Access-token signing secret (32+ characters). |
+| `API_KEY` | yes | Shared key used by the web app to call the API. |
+| `PORT` | no | API port. Default `4000`. |
+| `CORS_ORIGINS` | in production | Comma-separated allowed web origins. |
+| `ALLOW_PUBLIC_REGISTRATION` | no | Allow sign-up after the first account. Default `false`. |
+| `IMAGE_STORAGE_DIR` | no | Image upload directory. |
+| `BACKUP_STORAGE_DIR` | no | Backup archive directory. |
+| `IMAGE_MAX_FILE_SIZE` | no | Max image size in bytes. Default 5 MB. |
+| `BACKUP_MAX_FILE_SIZE` | no | Max backup upload size. Default 1 GB. |
+| `BACKUP_SAFETY_SNAPSHOT` | no | Snapshot before restore. Default `true`. |
+
+The API validates these at startup and refuses to boot with a message listing
+every problem.
+
+### Web (`apps/web/.env`)
+
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `NEST_API_URL` | yes | API base URL, including `/api`. |
+| `API_KEY` | yes | Must match the API's `API_KEY`. |
+
+Invoice business details, numbering, and terms are **not** environment
+variables: they live in **Settings** and are stored in the database.
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `pnpm dev` | Run web and API in watch mode. |
+| `pnpm build` | Build all apps and packages. |
+| `pnpm lint` | Lint the workspace. |
+| `pnpm check-types` | Type-check the workspace. |
+| `pnpm test` | Run unit tests. |
+| `pnpm db:migrate` | Create/apply a development migration. |
+| `pnpm db:deploy` | Apply existing migrations (production). |
+| `pnpm db:studio` | Open Prisma Studio. |
+
+## Backups
+
+Backups are managed from **Settings → Backup & Restore**. An archive contains
+the business data (catalog, customers, orders, payments, invoices, inventory
+history, and settings) plus uploaded media. Users, sessions, and backup history
+are intentionally excluded so they survive a restore.
+
+Restores are transactional: if anything fails, the existing data is left
+untouched. With `BACKUP_SAFETY_SNAPSHOT=true`, a safety backup is created before
+the restore begins.
+
+Keep the `BACKUP_STORAGE_DIR` volume on durable storage, and copy archives off
+the server as part of your host backup routine.
+
+## Deployment notes
+
+- Put the web app behind HTTPS (a reverse proxy such as Caddy, nginx, or
+  Traefik). Session cookies are marked `Secure` in production, so plain HTTP
+  will not sign users in.
+- Set `CORS_ORIGINS` (API) to the public web URL.
+- Do not expose the API port publicly; the browser should only talk to the web
+  app, which proxies API calls server-to-server with `API_KEY`.
+- Run one API instance. Authentication rate limiting is in-memory and applies
+  per process.
+
+## Project structure
+
+```
+apps/web          Next.js frontend and server-side API proxy
+apps/api          NestJS API, business logic, invoices, backups
+packages/database Prisma schema, migrations, and generated client
+packages/ui       Shared UI package
+docs              Operational documentation
 ```
 
-Without global `turbo`:
+## License
 
-```sh
-npx turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-pnpm exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-pnpm exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+See [LICENSE](LICENSE).
