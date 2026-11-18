@@ -23,8 +23,8 @@ renamed into place. Partial archives are deleted.
 ### Included data
 
 Categories, brands, images, products, product images, customers, orders, order
-items, order payments, all singleton business settings, and document
-sequences.
+items, order payments, invoices, the stock movement audit trail, all singleton
+business settings, and document sequences.
 
 ### Deliberately excluded
 

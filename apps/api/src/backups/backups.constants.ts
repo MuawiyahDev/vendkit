@@ -38,6 +38,7 @@ export const BACKUP_TABLE_NAMES = [
   'orders',
   'orderItems',
   'orderPayments',
+  'invoices',
   'stockMovements',
   'businessProfileSettings',
   'invoiceSettings',
@@ -56,6 +57,7 @@ export type BackupTableName = (typeof BACKUP_TABLE_NAMES)[number];
 export const BACKUP_DELETE_ORDER: readonly BackupTableName[] = [
   'stockMovements',
   'orderPayments',
+  'invoices',
   'orderItems',
   'productImages',
   'orders',

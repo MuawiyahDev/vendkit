@@ -461,6 +461,8 @@ export class OrdersService {
     dto: UpdateOrderDto,
     actor: User | null = null,
   ): Promise<OrderResponse> {
+    await this.assertOrderEditableWithInvoice(id);
+
     if (dto.items !== undefined) {
       return this.updateWithItems(id, dto, actor);
     }
@@ -1002,6 +1004,17 @@ export class OrdersService {
         );
       }
 
+      const issuedInvoice = await tx.invoice.findUnique({
+        where: { orderId: id },
+        select: { status: true, invoiceNumber: true },
+      });
+
+      if (issuedInvoice?.status === 'ISSUED') {
+        throw new ConflictException(
+          `Order cannot be deleted because invoice ${issuedInvoice.invoiceNumber} is issued. Cancel the invoice first.`,
+        );
+      }
+
       if (order.stockDeducted) {
         await this.restoreStockOnce(tx, {
           order: { id: order.id, orderNumber: order.orderNumber },
@@ -1157,6 +1170,30 @@ export class OrdersService {
 
     if (!customer) {
       throw new NotFoundException('Customer not found');
+    }
+  }
+
+  /**
+   * An issued invoice is a document the buyer already has. Unless the invoice
+   * settings explicitly allow edits after issue, changing the order would make
+   * the stored invoice disagree with the order it references.
+   */
+  private async assertOrderEditableWithInvoice(orderId: string): Promise<void> {
+    const invoice = await this.prisma.client.invoice.findUnique({
+      where: { orderId },
+      select: { status: true, invoiceNumber: true },
+    });
+
+    if (invoice?.status !== 'ISSUED') {
+      return;
+    }
+
+    const invoiceSettings = await this.settings.getInvoiceSettings();
+
+    if (!invoiceSettings.allowEditingAfterIssue) {
+      throw new ConflictException(
+        `Invoice ${invoice.invoiceNumber} is already issued. Cancel it or enable "Allow editing after issue" before changing this order.`,
+      );
     }
   }
 

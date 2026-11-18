@@ -209,6 +209,9 @@ describe('OrdersService', () => {
     stockMovement: {
       groupBy: vi.fn(),
     },
+    invoice: {
+      findUnique: vi.fn(),
+    },
   };
 
   const prismaMock = {
@@ -224,6 +227,9 @@ describe('OrdersService', () => {
         findMany: vi.fn(),
       },
       customer: {
+        findUnique: vi.fn(),
+      },
+      invoice: {
         findUnique: vi.fn(),
       },
     },

@@ -2,7 +2,7 @@ import { Role } from '@repo/database';
 
 export const Permissions = {
   user: ['user:read', 'user:update'],
-  admin: ['user:read', 'user:update', 'user:delete'],
+  admin: ['user:read', 'user:create', 'user:update', 'user:delete'],
   category: [
     'category:read',
     'category:create',
@@ -19,6 +19,7 @@ export const Permissions = {
     'customer:delete',
   ],
   order: ['order:read', 'order:create', 'order:update', 'order:delete'],
+  invoice: ['invoice:read', 'invoice:create', 'invoice:update'],
   inventory: ['inventory:read', 'inventory:update'],
   settingRead: ['setting:read'],
   settingUpdate: ['setting:update'],
@@ -40,6 +41,7 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     ...Permissions.product,
     ...Permissions.customer,
     ...Permissions.order,
+    ...Permissions.invoice,
     ...Permissions.inventory,
     ...Permissions.settingRead,
   ] as readonly Permission[],
@@ -51,6 +53,7 @@ export const ROLE_PERMISSIONS: RolePermissions = {
     ...Permissions.product,
     ...Permissions.customer,
     ...Permissions.order,
+    ...Permissions.invoice,
     ...Permissions.inventory,
     ...Permissions.settingRead,
     ...Permissions.settingUpdate,

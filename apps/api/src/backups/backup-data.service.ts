@@ -60,6 +60,9 @@ export class BackupDataService {
           orderPayments: await tx.orderPayment.findMany({
             orderBy: [{ orderId: 'asc' }, { createdAt: 'asc' }],
           }),
+          invoices: await tx.invoice.findMany({
+            orderBy: [{ issueDate: 'asc' }, { id: 'asc' }],
+          }),
           stockMovements: await tx.stockMovement.findMany({
             orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           }),
@@ -217,6 +220,13 @@ function createTableOperations(
       insert: (rows) =>
         tx.orderPayment.createMany({
           data: rows as unknown as Prisma.OrderPaymentCreateManyInput[],
+        }),
+    },
+    invoices: {
+      deleteAll: () => tx.invoice.deleteMany(),
+      insert: (rows) =>
+        tx.invoice.createMany({
+          data: rows as unknown as Prisma.InvoiceCreateManyInput[],
         }),
     },
     stockMovements: {

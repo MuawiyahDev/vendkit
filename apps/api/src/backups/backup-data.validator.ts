@@ -2,6 +2,7 @@ import {
   CurrencyDisplayFormat,
   CurrencyPosition,
   InvoiceDefaultStatus,
+  InvoiceStatus,
   OrderPaymentStatus,
   OrderStatus,
   PaymentMethod,
@@ -22,7 +23,14 @@ import {
 } from './backups.utils.js';
 
 type FieldKind =
-  'string' | 'int' | 'bool' | 'decimal' | 'date' | 'enum' | 'enumArray';
+  | 'string'
+  | 'int'
+  | 'bool'
+  | 'decimal'
+  | 'date'
+  | 'enum'
+  | 'enumArray'
+  | 'json';
 
 interface FieldRule {
   kind: FieldKind;
@@ -55,6 +63,7 @@ const decimal: FieldRule = { kind: 'decimal' };
 const decimalOptional: FieldRule = { kind: 'decimal', optional: true };
 const date: FieldRule = { kind: 'date' };
 const dateOptional: FieldRule = { kind: 'date', optional: true };
+const jsonOptional: FieldRule = { kind: 'json', optional: true };
 
 function enumRule(values: readonly string[], optional = false): FieldRule {
   return { kind: 'enum', optional, enumValues: values };
@@ -207,6 +216,28 @@ const TABLE_FIELDS: Record<BackupTableName, Record<string, FieldRule>> = {
     reference: strOptional,
     note: strOptional,
     paidAt: dateOptional,
+    createdAt: date,
+    updatedAt: date,
+  },
+  invoices: {
+    id: str,
+    invoiceNumber: str,
+    orderId: str,
+    status: enumRule(Object.values(InvoiceStatus)),
+    issueDate: date,
+    dueDate: dateOptional,
+    sequenceYear: intOptional,
+    sequenceValue: int,
+    currency: str,
+    subtotal: decimal,
+    discountAmount: decimal,
+    shippingFee: decimal,
+    taxAmount: decimal,
+    totalAmount: decimal,
+    snapshot: jsonOptional,
+    cancelledAt: dateOptional,
+    cancellationReason: strOptional,
+    createdByName: strOptional,
     createdAt: date,
     updatedAt: date,
   },
@@ -377,8 +408,12 @@ export function validateBackupData(
     const recordsValue = tablesValue[table];
 
     // Backups created before inventory management existed do not contain
-    // this table. Treat them as having an empty audit trail.
-    if (recordsValue === undefined && table === 'stockMovements') {
+    // this table. Treat them as having an empty audit trail. The same applies
+    // to invoices for backups created before invoicing was persisted.
+    if (
+      recordsValue === undefined &&
+      (table === 'stockMovements' || table === 'invoices')
+    ) {
       tables[table] = [];
       continue;
     }
@@ -484,6 +519,10 @@ export function validateBackupRelations(
 
   for (const payment of data.tables.orderPayments) {
     assertReference(orderIds, payment.orderId, 'order');
+  }
+
+  for (const invoice of data.tables.invoices) {
+    assertReference(orderIds, invoice.orderId, 'order');
   }
 
   for (const movement of data.tables.stockMovements) {
@@ -622,6 +661,12 @@ function validateField(
         throw invalidField(table, key);
       }
       return [...value];
+
+    case 'json':
+      if (typeof value !== 'object' || value === null) {
+        throw invalidField(table, key);
+      }
+      return value;
 
     default: {
       const exhaustive: never = rule.kind;
