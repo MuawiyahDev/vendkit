@@ -1,11 +1,9 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import type {
-  Order,
-  OrderPaymentStatus,
-} from "@/features/orders/api/orders-api";
+import type { OrderPaymentStatus } from "@/features/orders/api/orders-api";
 
 import { INVOICE_COLORS, invoiceStyles as styles } from "./invoice.styles";
+import type { InvoiceDocument } from "./invoice.types";
 import {
   formatInvoiceCurrency,
   formatInvoiceDate,
@@ -19,11 +17,13 @@ const PAYMENT_STATUS_COLOR: Record<OrderPaymentStatus, string> = {
 };
 
 interface InvoicePaymentsProps {
-  order: Order;
+  document: InvoiceDocument;
 }
 
-export function InvoicePayments({ order }: InvoicePaymentsProps) {
-  if (order.payments.length === 0) {
+export function InvoicePayments({ document }: InvoicePaymentsProps) {
+  const payments = document.order.payments;
+
+  if (payments.length === 0) {
     return null;
   }
 
@@ -51,7 +51,7 @@ export function InvoicePayments({ order }: InvoicePaymentsProps) {
           </Text>
         </View>
 
-        {order.payments.map((payment) => (
+        {payments.map((payment) => (
           <View key={payment.id} style={styles.paymentRow} wrap={false}>
             <Text style={[styles.paymentText, styles.colPaymentDate]}>
               {formatInvoiceDate(payment.paidAt ?? payment.createdAt)}
@@ -63,7 +63,7 @@ export function InvoicePayments({ order }: InvoicePaymentsProps) {
               {payment.reference?.trim() || "-"}
             </Text>
             <Text style={[styles.paymentTextStrong, styles.colPaymentAmount]}>
-              {formatInvoiceCurrency(payment.amount, order.currency)}
+              {formatInvoiceCurrency(payment.amount, document.currency)}
             </Text>
             <Text
               style={[

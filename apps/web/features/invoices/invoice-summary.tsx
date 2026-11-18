@@ -1,8 +1,7 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import type { Order } from "@/features/orders/api/orders-api";
-
 import { invoiceStyles as styles } from "./invoice.styles";
+import type { InvoiceDocument } from "./invoice.types";
 import {
   formatInvoiceCurrency,
   getInvoiceOutstandingBalance,
@@ -10,52 +9,56 @@ import {
 } from "./invoice.utils";
 
 interface InvoiceSummaryProps {
-  order: Order;
+  document: InvoiceDocument;
 }
 
-export function InvoiceSummary({ order }: InvoiceSummaryProps) {
-  const discount = parseInvoiceAmount(order.discountAmount);
-  const shipping = parseInvoiceAmount(order.shippingFee);
-  const tax = parseInvoiceAmount(order.taxAmount);
-  const outstanding = getInvoiceOutstandingBalance(order);
+export function InvoiceSummary({ document }: InvoiceSummaryProps) {
+  const { currency, presentation, tax } = document;
+  const discount = parseInvoiceAmount(document.discountAmount);
+  const shipping = parseInvoiceAmount(document.shippingFee);
+  const taxAmount = parseInvoiceAmount(document.taxAmount);
+  const outstanding = getInvoiceOutstandingBalance({
+    totalAmount: document.totalAmount,
+    amountPaid: document.order.amountPaid,
+  });
 
   return (
     <View style={styles.summary} wrap={false}>
       <View style={styles.summaryBox}>
         <SummaryRow
           label="Subtotal"
-          value={formatInvoiceCurrency(order.subtotal, order.currency)}
+          value={formatInvoiceCurrency(document.subtotal, currency)}
         />
-        {discount > 0 ? (
+        {presentation.showDiscountBreakdown && discount > 0 ? (
           <SummaryRow
             label="Discount"
-            value={`- ${formatInvoiceCurrency(discount, order.currency)}`}
+            value={`- ${formatInvoiceCurrency(discount, currency)}`}
           />
         ) : null}
         {shipping > 0 ? (
           <SummaryRow
             label="Shipping"
-            value={formatInvoiceCurrency(shipping, order.currency)}
+            value={formatInvoiceCurrency(shipping, currency)}
           />
         ) : null}
-        {tax > 0 ? (
+        {presentation.showTaxBreakdown && taxAmount > 0 ? (
           <SummaryRow
-            label="Tax"
-            value={formatInvoiceCurrency(tax, order.currency)}
+            label={tax.enabled ? `${tax.name} (${tax.rate}%)` : "Tax"}
+            value={formatInvoiceCurrency(taxAmount, currency)}
           />
         ) : null}
 
         <View style={styles.grandRow}>
           <Text style={styles.grandLabel}>Total</Text>
           <Text style={styles.grandValue}>
-            {formatInvoiceCurrency(order.totalAmount, order.currency)}
+            {formatInvoiceCurrency(document.totalAmount, currency)}
           </Text>
         </View>
 
         <View style={styles.paidRow}>
           <Text style={styles.paidLabel}>Amount paid</Text>
           <Text style={styles.paidValue}>
-            {formatInvoiceCurrency(order.amountPaid, order.currency)}
+            {formatInvoiceCurrency(document.order.amountPaid, currency)}
           </Text>
         </View>
 
@@ -69,7 +72,7 @@ export function InvoiceSummary({ order }: InvoiceSummaryProps) {
             }
           >
             {outstanding > 0
-              ? formatInvoiceCurrency(outstanding, order.currency)
+              ? formatInvoiceCurrency(outstanding, currency)
               : "Paid in full"}
           </Text>
         </View>

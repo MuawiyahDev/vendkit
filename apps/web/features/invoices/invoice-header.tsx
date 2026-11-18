@@ -1,9 +1,7 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import type { Order } from "@/features/orders/api/orders-api";
-
 import { invoiceStyles as styles } from "./invoice.styles";
-import type { InvoiceBusinessProfile } from "./invoice.types";
+import type { InvoiceDocument } from "./invoice.types";
 import {
   buildInvoiceBusinessContactLine,
   formatInvoiceDate,
@@ -12,11 +10,11 @@ import {
 } from "./invoice.utils";
 
 interface InvoiceHeaderProps {
-  order: Order;
-  business: InvoiceBusinessProfile;
+  document: InvoiceDocument;
 }
 
-export function InvoiceHeader({ order, business }: InvoiceHeaderProps) {
+export function InvoiceHeader({ document }: InvoiceHeaderProps) {
+  const { business, order } = document;
   const contactLine = buildInvoiceBusinessContactLine(business);
 
   return (
@@ -46,15 +44,25 @@ export function InvoiceHeader({ order, business }: InvoiceHeaderProps) {
 
         <View style={styles.headerRight}>
           <Text style={styles.invoiceTitle}>INVOICE</Text>
-          <Text style={styles.invoiceNumber}>#{order.orderNumber}</Text>
+          <Text style={styles.invoiceNumber}>#{document.invoiceNumber}</Text>
           <View style={styles.metaList}>
             <MetaRow
               label="Invoice date"
-              value={formatInvoiceDate(order.createdAt)}
+              value={formatInvoiceDate(document.issueDate)}
+            />
+            {document.dueDate ? (
+              <MetaRow
+                label="Due date"
+                value={formatInvoiceDate(document.dueDate)}
+              />
+            ) : null}
+            <MetaRow
+              label="Status"
+              value={formatInvoiceStatus(document.status)}
             />
             <MetaRow
-              label="Order status"
-              value={formatInvoiceStatus(order.status)}
+              label="Order"
+              value={order.orderNumber}
             />
             <MetaRow
               label="Payment"

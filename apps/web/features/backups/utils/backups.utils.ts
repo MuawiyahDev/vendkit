@@ -79,7 +79,7 @@ export const INCLUDED_DATA_GROUPS = [
   {
     title: "Sales",
     description:
-      "Customers, orders, line items, payment records and the stock movement audit trail.",
+      "Customers, orders, line items, payment records, invoices and the stock movement audit trail.",
   },
   {
     title: "Configuration",

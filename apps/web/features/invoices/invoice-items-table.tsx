@@ -1,15 +1,16 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import type { Order } from "@/features/orders/api/orders-api";
-
 import { invoiceStyles as styles } from "./invoice.styles";
+import type { InvoiceDocument } from "./invoice.types";
 import { formatInvoiceCurrency } from "./invoice.utils";
 
 interface InvoiceItemsTableProps {
-  order: Order;
+  document: InvoiceDocument;
 }
 
-export function InvoiceItemsTable({ order }: InvoiceItemsTableProps) {
+export function InvoiceItemsTable({ document }: InvoiceItemsTableProps) {
+  const { order, presentation, currency } = document;
+
   return (
     <View style={styles.table}>
       <View style={styles.tableHeader} minPresenceAhead={56}>
@@ -30,16 +31,16 @@ export function InvoiceItemsTable({ order }: InvoiceItemsTableProps) {
         >
           <View style={styles.colItem}>
             <Text style={styles.itemName}>{item.productName}</Text>
-            {item.sku ? (
+            {presentation.showSku && item.sku ? (
               <Text style={styles.itemSku}>SKU {item.sku}</Text>
             ) : null}
           </View>
           <Text style={[styles.cellText, styles.colQty]}>{item.quantity}</Text>
           <Text style={[styles.cellText, styles.colUnit]}>
-            {formatInvoiceCurrency(item.unitPrice, order.currency)}
+            {formatInvoiceCurrency(item.unitPrice, currency)}
           </Text>
           <Text style={[styles.cellStrong, styles.colAmount]}>
-            {formatInvoiceCurrency(item.lineTotal, order.currency)}
+            {formatInvoiceCurrency(item.lineTotal, currency)}
           </Text>
         </View>
       ))}

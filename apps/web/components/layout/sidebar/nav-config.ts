@@ -1,4 +1,5 @@
 import {
+  FileText,
   Images,
   LayoutDashboard,
   Package,
@@ -35,6 +36,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Selling",
     items: [
       { title: "Orders", href: "/orders", icon: ReceiptText },
+      { title: "Invoices", href: "/invoices", icon: FileText },
       { title: "Products", href: "/products", icon: Package },
       { title: "Inventory", href: "/inventory", icon: Warehouse },
       { title: "Categories", href: "/categories", icon: Tags },

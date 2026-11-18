@@ -21,7 +21,7 @@ import { WhatsAppIcon } from "@/components/shared/whatsapp-icon";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DownloadInvoiceButton } from "@/features/invoices/components/download-invoice-button";
+import { OrderInvoiceCard } from "@/features/invoices/components/order-invoice-card";
 
 import type {
   Order,
@@ -320,10 +320,6 @@ export function OrderDetailsPage() {
               <WhatsAppIcon className={WHATSAPP_ICON_COLOR_CLASS} />
               WhatsApp Customer
             </Button>
-            <DownloadInvoiceButton
-              orderId={order.id}
-              orderNumber={order.orderNumber}
-            />
             {order.status !== "CANCELLED" && order.items.length > 0 ? (
               <Button
                 type="button"
@@ -382,6 +378,7 @@ export function OrderDetailsPage() {
         </div>
 
         <div className="flex w-full flex-col gap-6">
+          <OrderInvoiceCard order={order} />
           <OrderSummaryCard order={order} />
           <OrderCustomerCard order={order} />
           <OrderNotesCard order={order} />

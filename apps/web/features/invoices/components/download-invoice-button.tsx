@@ -5,22 +5,30 @@ import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { apiErrorFromPayload } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 
+import { invoiceFileUrl } from "../invoices-api";
 import { buildInvoiceFileName } from "../invoice.utils";
 
 interface DownloadInvoiceButtonProps {
-  orderId: string;
-  orderNumber: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  label?: string;
+  className?: string;
+  variant?: React.ComponentProps<typeof Button>["variant"];
 }
 
 /**
- * Fetches the generated invoice PDF and saves it through a temporary object
- * URL. Going through `fetch` (instead of a plain link) lets the button show a
+ * Fetches the stored invoice PDF and saves it through a temporary object URL.
+ * Going through `fetch` (instead of a plain link) lets the button show a
  * loading state and surface a readable error when generation fails.
  */
 export function DownloadInvoiceButton({
-  orderId,
-  orderNumber,
+  invoiceId,
+  invoiceNumber,
+  label = "Download",
+  className,
+  variant = "outline",
 }: DownloadInvoiceButtonProps) {
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +38,7 @@ export function DownloadInvoiceButton({
     setIsDownloading(true);
 
     try {
-      const response = await fetch(`/api/orders/${orderId}/invoice`, {
+      const response = await fetch(invoiceFileUrl(invoiceId), {
         method: "GET",
         cache: "no-store",
       });
@@ -44,7 +52,7 @@ export function DownloadInvoiceButton({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = buildInvoiceFileName(orderNumber);
+      link.download = buildInvoiceFileName(invoiceNumber);
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -61,28 +69,28 @@ export function DownloadInvoiceButton({
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
+    <div className={cn("flex flex-col gap-1", className)}>
       <Button
         type="button"
-        variant="outline"
+        variant={variant}
         onClick={() => {
           void handleDownload();
         }}
         disabled={isDownloading}
         title="Download invoice PDF"
-        aria-label="Download invoice PDF"
+        aria-label={`Download invoice ${invoiceNumber} as PDF`}
       >
         {isDownloading ? (
           <Loader2 className="animate-spin" aria-hidden="true" />
         ) : (
           <Download aria-hidden="true" />
         )}
-        {isDownloading ? "Generating..." : "Invoice"}
+        {isDownloading ? "Generating..." : label}
       </Button>
       {error ? (
         <p
           role="alert"
-          className="text-destructive max-w-56 text-right text-xs leading-snug"
+          className="text-destructive max-w-56 text-xs leading-snug"
         >
           {error}
         </p>

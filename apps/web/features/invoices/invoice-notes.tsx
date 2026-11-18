@@ -1,47 +1,46 @@
 import { Text, View } from "@react-pdf/renderer";
 
-import type { Order } from "@/features/orders/api/orders-api";
-
 import { invoiceStyles as styles } from "./invoice.styles";
-import type { InvoiceBusinessProfile } from "./invoice.types";
+import type { InvoiceDocument } from "./invoice.types";
 
 interface InvoiceNotesProps {
-  order: Order;
-  business: InvoiceBusinessProfile;
+  document: InvoiceDocument;
 }
 
-export function InvoiceNotes({ order, business }: InvoiceNotesProps) {
-  const customerNote = order.customerNote?.trim();
-  const paymentTerms = business.paymentTerms?.trim();
+export function InvoiceNotes({ document }: InvoiceNotesProps) {
+  const { notes, additionalInfo } = document;
+  const customerNote = notes.customerNote?.trim();
+  const invoiceNote = notes.invoiceNotes?.trim();
+  const paymentTerms = notes.paymentTerms?.trim();
+  const extraInfo = additionalInfo?.trim();
 
-  if (!customerNote && !paymentTerms) {
+  const blocks = [
+    customerNote ? { title: "Notes", body: customerNote } : null,
+    invoiceNote ? { title: "Invoice notes", body: invoiceNote } : null,
+    paymentTerms ? { title: "Payment terms", body: paymentTerms } : null,
+    extraInfo ? { title: "Additional information", body: extraInfo } : null,
+  ].filter((block): block is { title: string; body: string } => block !== null);
+
+  if (blocks.length === 0) {
     return null;
   }
 
   return (
     <View style={styles.section}>
-      {customerNote ? (
-        <>
-          <Text style={styles.sectionTitle} minPresenceAhead={24}>
-            Notes
-          </Text>
-          <Text style={styles.noteText}>{customerNote}</Text>
-        </>
-      ) : null}
-      {paymentTerms ? (
-        <>
+      {blocks.map((block, index) => (
+        <View key={block.title}>
           <Text
             style={[
               styles.sectionTitle,
-              customerNote ? styles.sectionTitleSpaced : undefined,
+              index > 0 ? styles.sectionTitleSpaced : undefined,
             ]}
             minPresenceAhead={24}
           >
-            Payment terms
+            {block.title}
           </Text>
-          <Text style={styles.noteText}>{paymentTerms}</Text>
-        </>
-      ) : null}
+          <Text style={styles.noteText}>{block.body}</Text>
+        </View>
+      ))}
     </View>
   );
 }

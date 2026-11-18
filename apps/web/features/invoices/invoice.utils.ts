@@ -136,12 +136,13 @@ export function parseInvoiceAmount(value: string | number): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-export function getInvoiceOutstandingBalance(
-  order: Pick<Order, "totalAmount" | "amountPaid">,
-): number {
+export function getInvoiceOutstandingBalance(invoice: {
+  totalAmount: string | number;
+  amountPaid: string | number;
+}): number {
   const balance =
-    parseInvoiceAmount(order.totalAmount) -
-    parseInvoiceAmount(order.amountPaid);
+    parseInvoiceAmount(invoice.totalAmount) -
+    parseInvoiceAmount(invoice.amountPaid);
 
   return Math.max(0, Math.round((balance + Number.EPSILON) * 100) / 100);
 }
