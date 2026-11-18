@@ -9,8 +9,10 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { BackupsModule } from './backups/backups.module.js';
 import { BrandsModule } from './brands/brands.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
+import { validateEnvironment } from './config/env.validation.js';
 import { CustomersModule } from './customers/customers.module.js';
 import { DashboardModule } from './dashboard/dashboard.module.js';
+import { HealthModule } from './health/health.module.js';
 import { ImagesModule } from './images/images.module.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { InvoicesModule } from './invoices/invoices.module.js';
@@ -25,6 +27,7 @@ import { UsersModule } from './users/users.module.js';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: ['../../packages/database/.env', '.env'],
+      validate: validateEnvironment,
     }),
     PrismaModule,
     AuthModule,
@@ -40,6 +43,7 @@ import { UsersModule } from './users/users.module.js';
     DashboardModule,
     SettingsModule,
     BackupsModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

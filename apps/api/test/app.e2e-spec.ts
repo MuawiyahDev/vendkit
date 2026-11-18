@@ -10,7 +10,7 @@ describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeEach(async () => {
-    process.env.JWT_SECRET = 'e2e-test-secret';
+    process.env.JWT_SECRET = 'e2e-test-secret-that-is-long-enough-for-validation';
     process.env.API_KEY = TEST_API_KEY;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({

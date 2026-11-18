@@ -45,7 +45,7 @@ describe('Products (e2e)', () => {
   }
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'e2e-test-secret';
+    process.env.JWT_SECRET = 'e2e-test-secret-that-is-long-enough-for-validation';
     process.env.API_KEY = TEST_API_KEY;
     storageDir = await mkdtemp(join(tmpdir(), 'products-e2e-'));
     process.env.IMAGE_STORAGE_DIR = storageDir;

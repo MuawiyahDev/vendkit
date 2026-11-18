@@ -148,7 +148,7 @@ describeBackupE2e('Backups (e2e)', () => {
   }
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'e2e-test-secret';
+    process.env.JWT_SECRET = 'e2e-test-secret-that-is-long-enough-for-validation';
     process.env.API_KEY = TEST_API_KEY;
     process.env.BACKUP_SAFETY_SNAPSHOT = 'true';
 

@@ -21,13 +21,23 @@ export class ApiKeyGuard implements CanActivate {
   }
 
   canActivate(context: ExecutionContext): true {
+    const request = context.switchToHttp().getRequest<{
+      headers: Record<string, string | string[] | undefined>;
+      method?: string;
+      path?: string;
+      url?: string;
+    }>();
+
+    // Container health checks are intentionally callable without the shared
+    // API key so an orchestrator can probe readiness before the web app is up.
+    const path = request.path ?? request.url ?? '';
+    if (request.method === 'GET' && /^\/(api\/)?health\/?$/.test(path)) {
+      return true;
+    }
+
     if (this.validKeys.length === 0) {
       throw new UnauthorizedException('API key authentication is not configured');
     }
-
-    const request = context
-      .switchToHttp()
-      .getRequest<{ headers: Record<string, string | string[] | undefined> }>();
 
     const provided = request.headers[API_KEY_HEADER];
     const providedKey = Array.isArray(provided) ? provided[0] : provided;
