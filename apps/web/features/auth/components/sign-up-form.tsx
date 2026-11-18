@@ -25,7 +25,12 @@ const EMAIL_ERROR_ID = "sign-up-email-error";
 const PASSWORD_ERROR_ID = "sign-up-password-error";
 const CONFIRM_PASSWORD_ERROR_ID = "sign-up-confirm-password-error";
 
-export function SignUpForm() {
+interface SignUpFormProps {
+  /** True on a fresh installation, where the first account becomes admin. */
+  isFirstUser?: boolean;
+}
+
+export function SignUpForm({ isFirstUser = false }: SignUpFormProps) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -61,8 +66,12 @@ export function SignUpForm() {
   return (
     <div className="flex flex-col gap-4">
       <AuthFormCard
-        title="Create your account"
-        description="Start managing orders for your business with VendKit."
+        title={isFirstUser ? "Set up VendKit" : "Create your account"}
+        description={
+          isFirstUser
+            ? "This first account becomes the administrator for this installation."
+            : "Start managing orders for your business with VendKit."
+        }
       >
         <form
           onSubmit={handleSubmit(onSubmit)}

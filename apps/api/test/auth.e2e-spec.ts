@@ -13,7 +13,7 @@ describe('Auth (e2e)', () => {
   const password = 'strong-password-123';
 
   beforeAll(async () => {
-    process.env.JWT_SECRET = 'e2e-test-secret';
+    process.env.JWT_SECRET = 'e2e-test-secret-that-is-long-enough-for-validation';
     process.env.API_KEY = TEST_API_KEY;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -46,7 +46,8 @@ describe('Auth (e2e)', () => {
     expect(res.body).toHaveProperty('refreshToken');
     expect(res.body.user.email).toBe(email);
     expect(res.body.user.password).toBeUndefined();
-    expect(res.body.user.role).toBe('USER');
+    // A fresh installation promotes the first account to administrator.
+    expect(['USER', 'ADMIN']).toContain(res.body.user.role);
   });
 
   it('rejects duplicate emails', async () => {
@@ -135,12 +136,12 @@ describe('Auth (e2e)', () => {
       .expect(200);
 
     const res = await request(app.getHttpServer())
-      .get('/users')
+      .get(`/users/${login.body.user.id}`)
       .set('x-api-key', TEST_API_KEY)
       .set('Authorization', `Bearer ${login.body.accessToken}`)
       .expect(200);
 
-    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.email).toBe(email);
   });
 
   it('denies access with an expired/garbage token', async () => {

@@ -1,21 +1,33 @@
 import {
+  BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import type { Role, User } from '@repo/database';
+import { Role, type User } from '@repo/database';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import type { SafeUser } from '../users/types.js';
+import {
+  ACCESS_TOKEN_EXPIRY,
+  BCRYPT_ROUNDS,
+  REFRESH_TOKEN_EXPIRY_DAYS,
+} from './auth.constants.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 
-const ACCESS_TOKEN_EXPIRY = '15m';
-const REFRESH_TOKEN_EXPIRY_DAYS = 7;
+export interface RegistrationStatus {
+  /** True when someone may create an account from the sign-up screen. */
+  open: boolean;
+  /** True when the next account becomes the installation administrator. */
+  isFirstUser: boolean;
+}
 
 export interface AuthTokens {
   accessToken: string;
@@ -32,6 +44,15 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto): Promise<AuthTokens> {
+    const userCount = await this.prisma.client.user.count();
+    const isFirstUser = userCount === 0;
+
+    if (!isFirstUser && !this.isPublicRegistrationAllowed()) {
+      throw new ForbiddenException(
+        'Registration is closed on this installation. Ask an administrator to create your account.',
+      );
+    }
+
     const existing = await this.prisma.client.user.findUnique({
       where: { email: dto.email },
     });
@@ -40,17 +61,77 @@ export class AuthService {
       throw new ConflictException('Email already in use');
     }
 
-    const password = await bcrypt.hash(dto.password, 10);
+    const password = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
 
     const user = await this.prisma.client.user.create({
       data: {
         email: dto.email,
         name: dto.name,
         password,
+        role: isFirstUser ? Role.ADMIN : Role.USER,
       },
     });
 
     return this.issueTokens(user);
+  }
+
+  async getRegistrationStatus(): Promise<RegistrationStatus> {
+    const userCount = await this.prisma.client.user.count();
+
+    return {
+      open: userCount === 0 || this.isPublicRegistrationAllowed(),
+      isFirstUser: userCount === 0,
+    };
+  }
+
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User no longer exists');
+    }
+
+    const currentValid = await bcrypt.compare(currentPassword, user.password);
+
+    if (!currentValid) {
+      throw new BadRequestException('Current password is incorrect');
+    }
+
+    if (await bcrypt.compare(newPassword, user.password)) {
+      throw new BadRequestException(
+        'The new password must be different from the current password',
+      );
+    }
+
+    await this.prisma.client.user.update({
+      where: { id: userId },
+      data: { password: await bcrypt.hash(newPassword, BCRYPT_ROUNDS) },
+    });
+  }
+
+  async setPassword(userId: string, newPassword: string): Promise<void> {
+    const user = await this.prisma.client.user.findUnique({
+      where: { id: userId },
+      select: { id: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await this.prisma.client.$transaction([
+      this.prisma.client.user.update({
+        where: { id: userId },
+        data: { password: await bcrypt.hash(newPassword, BCRYPT_ROUNDS) },
+      }),
+      this.prisma.client.refreshToken.deleteMany({ where: { userId } }),
+    ]);
   }
 
   async login(dto: LoginDto): Promise<AuthTokens> {
@@ -134,5 +215,14 @@ export class AuthService {
 
   private hashToken(token: string): string {
     return createHash('sha256').update(token).digest('hex');
+  }
+
+  private isPublicRegistrationAllowed(): boolean {
+    const value = this.config
+      .get<string>('ALLOW_PUBLIC_REGISTRATION')
+      ?.trim()
+      .toLowerCase();
+
+    return value === 'true' || value === '1' || value === 'yes';
   }
 }

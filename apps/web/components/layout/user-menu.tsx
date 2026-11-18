@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, LoaderCircle, LogOut } from "lucide-react";
+import { ChevronDown, LoaderCircle, LogOut, UserRound } from "lucide-react";
 
 import { signOut } from "@/features/auth/api/auth-api";
 import { useSession } from "@/features/auth/session/session-provider";
@@ -161,6 +162,13 @@ export function UserMenu({
             {user.email}
           </span>
         </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href="/account" onSelect={() => setOpen(false)}>
+            <UserRound aria-hidden="true" />
+            Account settings
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"

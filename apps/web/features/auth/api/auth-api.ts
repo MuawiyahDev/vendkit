@@ -12,6 +12,11 @@ interface SignUpInput {
   name?: string;
 }
 
+export interface RegistrationStatus {
+  open: boolean;
+  isFirstUser: boolean;
+}
+
 export async function signIn(input: SignInInput): Promise<SessionUser> {
   const data = await apiFetch<{ user: SessionUser }>("/api/auth/login", {
     method: "POST",

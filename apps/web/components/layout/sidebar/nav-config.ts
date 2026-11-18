@@ -7,6 +7,7 @@ import {
   Settings,
   Shapes,
   Tags,
+  UserCog,
   Users,
   Warehouse,
   type LucideIcon,
@@ -48,6 +49,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Configuration",
     items: [
       { title: "Media", href: "/media", icon: Images },
+      { title: "Team", href: "/team", icon: UserCog },
       { title: "Settings", href: "/settings", icon: Settings },
     ],
   },
