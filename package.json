@@ -1,12 +1,17 @@
 {
-  "name": "opencode",
+  "name": "vendkit",
   "private": true,
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "db:generate": "pnpm --filter @repo/database generate",
+    "db:migrate": "pnpm --filter @repo/database migrate",
+    "db:deploy": "pnpm --filter @repo/database deploy",
+    "db:studio": "pnpm --filter @repo/database studio"
   },
   "devDependencies": {
     "prettier": "3.9.6",
