@@ -17,6 +17,7 @@ import { OrderStatusOverview } from "./order-status-overview";
 import { QuickActions } from "./quick-actions";
 import { RecentOrders } from "./recent-orders";
 import { RevenueChart } from "./revenue-chart";
+import { SetupChecklist } from "./setup-checklist";
 
 function toRangeLabel(range: DashboardRange, dateFormat: string): string {
   if (range.preset === "custom") {
@@ -104,6 +105,8 @@ export function DashboardPage() {
               data.regional.dateFormat,
             )}
           />
+
+          <SetupChecklist setup={data.setup} />
 
           <div className="grid gap-6 xl:grid-cols-3">
             <div className="min-w-0 xl:col-span-2">

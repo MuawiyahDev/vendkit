@@ -102,6 +102,20 @@ export interface DashboardInventoryAlert {
   lowStockThreshold: number | null;
 }
 
+export interface DashboardSetupStep {
+  key: string;
+  title: string;
+  description: string;
+  href: string;
+  completed: boolean;
+}
+
+export interface DashboardSetup {
+  completed: number;
+  total: number;
+  steps: DashboardSetupStep[];
+}
+
 export interface DashboardResponse {
   generatedAt: string;
   range: DashboardRange;
@@ -112,6 +126,7 @@ export interface DashboardResponse {
   recentOrders: DashboardRecentOrder[];
   bestSellingProducts: DashboardBestSellingProduct[];
   inventoryAlerts: DashboardInventoryAlert[];
+  setup: DashboardSetup;
 }
 
 /** Selection state owned by the date filter. */
