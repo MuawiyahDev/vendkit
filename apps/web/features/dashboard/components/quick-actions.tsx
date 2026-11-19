@@ -1,5 +1,6 @@
 import {
   ArrowUpRight,
+  BarChart3,
   Package,
   PackagePlus,
   Plus,
@@ -48,6 +49,12 @@ const QUICK_ACTIONS: QuickAction[] = [
     label: "View customers",
     description: "Review buyer history",
     icon: Users,
+  },
+  {
+    href: "/reports",
+    label: "Open reports",
+    description: "See revenue and best sellers",
+    icon: BarChart3,
   },
   {
     href: "/inventory",

@@ -1,4 +1,5 @@
 import {
+  BarChart3,
   FileText,
   Images,
   LayoutDashboard,
@@ -43,6 +44,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { title: "Categories", href: "/categories", icon: Tags },
       { title: "Brands", href: "/brands", icon: Shapes },
       { title: "Customers", href: "/customers", icon: Users },
+      { title: "Reports", href: "/reports", icon: BarChart3 },
     ],
   },
   {
