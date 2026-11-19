@@ -10,6 +10,7 @@ import {
   type OrderListParams,
   type OrderListResponse,
   type OrderSortField,
+  type OrderSource,
   type OrderStatus,
   type PaymentStatus,
   type SortOrder,
@@ -28,6 +29,8 @@ export type OrderStatusFilter = "all" | OrderStatus;
 
 export type PaymentStatusFilter = "all" | PaymentStatus;
 
+export type OrderSourceFilter = "all" | OrderSource;
+
 export type OrdersView =
   | { status: "loading" }
   | { status: "success"; data: OrderListResponse }
@@ -42,6 +45,10 @@ function toStatusFilter(
 function toPaymentStatusFilter(
   filter: PaymentStatusFilter,
 ): PaymentStatus | undefined {
+  return filter === "all" ? undefined : filter;
+}
+
+function toSourceFilter(filter: OrderSourceFilter): OrderSource | undefined {
   return filter === "all" ? undefined : filter;
 }
 
@@ -63,6 +70,8 @@ export function useOrders(
     useState<OrderStatusFilter>(initialStatusFilter);
   const [paymentStatusFilter, setPaymentStatusFilterState] =
     useState<PaymentStatusFilter>(initialPaymentStatusFilter);
+  const [sourceFilter, setSourceFilterState] =
+    useState<OrderSourceFilter>("all");
   const [dateFrom, setDateFromState] = useState("");
   const [dateTo, setDateToState] = useState("");
   const [sortBy, setSortByState] = useState<OrderSortField>(
@@ -84,6 +93,7 @@ export function useOrders(
     debouncedSearch,
     statusFilter,
     paymentStatusFilter,
+    sourceFilter,
     dateFrom,
     dateTo,
     sortBy,
@@ -94,6 +104,7 @@ export function useOrders(
     prevQuery.debouncedSearch !== debouncedSearch ||
     prevQuery.statusFilter !== statusFilter ||
     prevQuery.paymentStatusFilter !== paymentStatusFilter ||
+    prevQuery.sourceFilter !== sourceFilter ||
     prevQuery.dateFrom !== dateFrom ||
     prevQuery.dateTo !== dateTo ||
     prevQuery.sortBy !== sortBy ||
@@ -104,6 +115,7 @@ export function useOrders(
       debouncedSearch,
       statusFilter,
       paymentStatusFilter,
+      sourceFilter,
       dateFrom,
       dateTo,
       sortBy,
@@ -124,6 +136,7 @@ export function useOrders(
       search: debouncedSearch || undefined,
       status: toStatusFilter(statusFilter),
       paymentStatus: toPaymentStatusFilter(paymentStatusFilter),
+      source: toSourceFilter(sourceFilter),
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
       sortBy,
@@ -163,6 +176,7 @@ export function useOrders(
     debouncedSearch,
     statusFilter,
     paymentStatusFilter,
+    sourceFilter,
     dateFrom,
     dateTo,
     sortBy,
@@ -182,6 +196,11 @@ export function useOrders(
     },
     [],
   );
+
+  const setSourceFilter = useCallback((next: OrderSourceFilter) => {
+    setIsFetching(true);
+    setSourceFilterState(next);
+  }, []);
 
   const setDateFrom = useCallback((next: string) => {
     setIsFetching(true);
@@ -221,6 +240,7 @@ export function useOrders(
     setSearchInput("");
     setStatusFilterState("all");
     setPaymentStatusFilterState("all");
+    setSourceFilterState("all");
     setDateFromState("");
     setDateToState("");
   }, []);
@@ -235,6 +255,8 @@ export function useOrders(
     setStatusFilter,
     paymentStatusFilter,
     setPaymentStatusFilter,
+    sourceFilter,
+    setSourceFilter,
     dateFrom,
     setDateFrom,
     dateTo,

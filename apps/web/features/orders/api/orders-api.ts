@@ -37,6 +37,45 @@ export const ORDER_PAYMENT_STATUSES = ["PENDING", "COMPLETED", "FAILED"] as cons
 
 export type OrderPaymentStatus = (typeof ORDER_PAYMENT_STATUSES)[number];
 
+/** Channels an order can originate from. */
+export const ORDER_SOURCES = [
+  "FACEBOOK",
+  "INSTAGRAM",
+  "WHATSAPP",
+  "TIKTOK",
+  "WEBSITE",
+  "PHONE",
+  "WALK_IN",
+  "OTHER",
+] as const;
+
+export type OrderSource = (typeof ORDER_SOURCES)[number];
+
+/** Timeline milestones returned with the order detail response. */
+export const ORDER_EVENT_TYPES = [
+  "ORDER_CREATED",
+  "DETAILS_UPDATED",
+  "ITEMS_UPDATED",
+  "STATUS_CHANGED",
+  "PAYMENT_RECORDED",
+  "PAYMENT_STATUS_CHANGED",
+  "RETURN_RECORDED",
+  "INVOICE_CREATED",
+  "INVOICE_ISSUED",
+  "INVOICE_CANCELLED",
+] as const;
+
+export type OrderEventType = (typeof ORDER_EVENT_TYPES)[number];
+
+export interface OrderEvent {
+  id: string;
+  type: OrderEventType;
+  message: string;
+  metadata: Record<string, unknown> | null;
+  actorName: string | null;
+  createdAt: string;
+}
+
 /** The only payment statuses the create-payment endpoint accepts. */
 export const CREATABLE_PAYMENT_STATUSES = ["PENDING", "COMPLETED"] as const;
 
@@ -86,6 +125,7 @@ export interface OrderBase {
   customer: OrderCustomerSummary | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  source: OrderSource;
   currency: string;
   subtotal: string;
   discountAmount: string;
@@ -98,6 +138,8 @@ export interface OrderBase {
   shippingAddress: string | null;
   shippingCity: string | null;
   shippingPostalCode: string | null;
+  shippingCarrier: string | null;
+  trackingNumber: string | null;
   customerNote: string | null;
   internalNote: string | null;
   cancellationReason: string | null;
@@ -113,6 +155,7 @@ export interface OrderSummary extends OrderBase {
 export interface Order extends OrderBase {
   items: OrderItem[];
   payments: OrderPayment[];
+  events: OrderEvent[];
 }
 
 export interface OrderListResponse {
@@ -134,6 +177,7 @@ export interface OrderListParams {
   search?: string;
   status?: OrderStatus;
   paymentStatus?: PaymentStatus;
+  source?: OrderSource;
   customerId?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -150,6 +194,7 @@ export interface OrderListParams {
  */
 export interface OrderCreateInput {
   customerId?: string;
+  source?: OrderSource;
   items: { productId: string; quantity: number }[];
   discountAmount?: number;
   shippingFee?: number;
@@ -159,6 +204,8 @@ export interface OrderCreateInput {
   shippingAddress?: string | null;
   shippingCity?: string | null;
   shippingPostalCode?: string | null;
+  shippingCarrier?: string | null;
+  trackingNumber?: string | null;
   customerNote?: string | null;
   internalNote?: string | null;
 }
@@ -169,12 +216,15 @@ export interface OrderCreateInput {
  */
 export interface OrderUpdateInput {
   customerId?: string;
+  source?: OrderSource;
   items?: { productId: string; quantity: number }[];
   shippingName?: string | null;
   shippingPhone?: string | null;
   shippingAddress?: string | null;
   shippingCity?: string | null;
   shippingPostalCode?: string | null;
+  shippingCarrier?: string | null;
+  trackingNumber?: string | null;
   customerNote?: string | null;
   internalNote?: string | null;
 }
@@ -198,10 +248,7 @@ interface RequestOptions {
   signal?: AbortSignal;
 }
 
-export async function listOrders(
-  params: OrderListParams = {},
-  { signal }: RequestOptions = {},
-): Promise<OrderListResponse> {
+function buildOrderListSearchParams(params: OrderListParams): URLSearchParams {
   const searchParams = new URLSearchParams();
 
   if (params.page !== undefined) {
@@ -219,6 +266,9 @@ export async function listOrders(
   if (params.paymentStatus) {
     searchParams.set("paymentStatus", params.paymentStatus);
   }
+  if (params.source) {
+    searchParams.set("source", params.source);
+  }
   if (params.customerId) {
     searchParams.set("customerId", params.customerId);
   }
@@ -235,10 +285,42 @@ export async function listOrders(
     searchParams.set("sortOrder", params.sortOrder);
   }
 
-  const query = searchParams.toString();
+  return searchParams;
+}
+
+export async function listOrders(
+  params: OrderListParams = {},
+  { signal }: RequestOptions = {},
+): Promise<OrderListResponse> {
+  const query = buildOrderListSearchParams(params).toString();
   return apiFetch<OrderListResponse>(`/api/orders${query ? `?${query}` : ""}`, {
     signal,
   });
+}
+
+export interface CsvExport {
+  fileName: string;
+  content: string;
+}
+
+export async function exportOrdersCsv(
+  params: OrderListParams = {},
+): Promise<CsvExport> {
+  const filters: OrderListParams = {
+    search: params.search,
+    status: params.status,
+    paymentStatus: params.paymentStatus,
+    source: params.source,
+    customerId: params.customerId,
+    dateFrom: params.dateFrom,
+    dateTo: params.dateTo,
+    sortBy: params.sortBy,
+    sortOrder: params.sortOrder,
+  };
+  const query = buildOrderListSearchParams(filters).toString();
+  return apiFetch<CsvExport>(
+    `/api/orders/export${query ? `?${query}` : ""}`,
+  );
 }
 
 export async function getOrder(

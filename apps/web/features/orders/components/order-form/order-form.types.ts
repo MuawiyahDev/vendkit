@@ -10,6 +10,10 @@ export type OrderShippingFieldName =
   | "shippingPhone"
   | "shippingAddress"
   | "shippingCity"
-  | "shippingPostalCode";
+  | "shippingPostalCode"
+  | "shippingCarrier"
+  | "trackingNumber";
+
+export type OrderSourceFieldName = "source";
 
 export type OrderNotesFieldName = "customerNote" | "internalNote";

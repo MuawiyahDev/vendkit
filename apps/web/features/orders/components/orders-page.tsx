@@ -12,8 +12,9 @@ import { TablePagination } from "@/components/shared/table-pagination";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { downloadCsv } from "@/lib/download";
 
-import { ORDER_STATUSES, type OrderSummary } from "../api/orders-api";
+import { ORDER_STATUSES, exportOrdersCsv, type OrderSummary } from "../api/orders-api";
 import { useOrders, type OrderStatusFilter } from "../hooks/use-orders";
 import { useWhatsAppDefaultCountry } from "../whatsapp/hooks/use-whatsapp-default-country";
 import { OrderWhatsAppDialog } from "../whatsapp/components/order-whatsapp-dialog";
@@ -49,6 +50,8 @@ export function OrdersPage() {
     setStatusFilter,
     paymentStatusFilter,
     setPaymentStatusFilter,
+    sourceFilter,
+    setSourceFilter,
     dateFrom,
     setDateFrom,
     dateTo,
@@ -70,6 +73,7 @@ export function OrdersPage() {
   const whatsAppDefaultCountry = useWhatsAppDefaultCountry();
   const [actionFeedback, setActionFeedback] = useState<string | null>(null);
   const [dismissedNotice, setDismissedNotice] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const liveNotice =
     notice !== null && notice !== dismissedNotice ? notice : null;
@@ -101,6 +105,35 @@ export function OrdersPage() {
     refresh();
   }
 
+  async function handleExport() {
+    setIsExporting(true);
+    setActionFeedback(null);
+
+    try {
+      const csv = await exportOrdersCsv({
+        search: debouncedSearch || undefined,
+        status: statusFilter === "all" ? undefined : statusFilter,
+        paymentStatus:
+          paymentStatusFilter === "all" ? undefined : paymentStatusFilter,
+        source: sourceFilter === "all" ? undefined : sourceFilter,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        sortBy,
+        sortOrder,
+      });
+      downloadCsv(csv);
+      setActionFeedback("Orders exported as CSV.");
+    } catch (error) {
+      setActionFeedback(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while exporting orders.",
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
   const isInitialLoading = view.status === "loading";
   const orders = view.status === "success" ? view.data.data : [];
   const meta = view.status === "success" ? view.data.meta : null;
@@ -109,6 +142,7 @@ export function OrdersPage() {
     debouncedSearch.length > 0 ||
     statusFilter !== "all" ||
     paymentStatusFilter !== "all" ||
+    sourceFilter !== "all" ||
     dateFrom !== "" ||
     dateTo !== "";
 
@@ -146,6 +180,8 @@ export function OrdersPage() {
           onStatusFilterChange={setStatusFilter}
           paymentStatusFilter={paymentStatusFilter}
           onPaymentStatusFilterChange={setPaymentStatusFilter}
+          sourceFilter={sourceFilter}
+          onSourceFilterChange={setSourceFilter}
           dateFrom={dateFrom}
           onDateFromChange={setDateFrom}
           dateTo={dateTo}
@@ -155,6 +191,10 @@ export function OrdersPage() {
           onSortChange={setSort}
           onRefresh={refresh}
           onResetFilters={clearFilters}
+          onExport={() => {
+            void handleExport();
+          }}
+          isExporting={isExporting}
           hasActiveFilters={hasActiveFilters}
         />
 

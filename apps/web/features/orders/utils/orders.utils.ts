@@ -1,6 +1,7 @@
 import type {
   OrderBase,
   OrderPaymentStatus,
+  OrderSource,
   OrderStatus,
   PaymentMethod,
 } from "../api/orders-api";
@@ -14,6 +15,21 @@ export function formatStatusLabel(status: string): string {
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+export const ORDER_SOURCE_LABELS: Record<OrderSource, string> = {
+  FACEBOOK: "Facebook",
+  INSTAGRAM: "Instagram",
+  WHATSAPP: "WhatsApp",
+  TIKTOK: "TikTok",
+  WEBSITE: "Website",
+  PHONE: "Phone call",
+  WALK_IN: "Walk-in",
+  OTHER: "Other",
+};
+
+export function formatOrderSource(source: OrderSource): string {
+  return ORDER_SOURCE_LABELS[source];
 }
 
 const currencyFormatterCache = new Map<string, Intl.NumberFormat>();

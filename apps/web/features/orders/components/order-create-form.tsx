@@ -7,20 +7,29 @@ import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
+import { NativeSelect } from "@/components/shared/native-select";
 import { CustomerFormDialog } from "@/features/customers/components/customer-form-dialog";
 import type { Customer } from "@/features/customers/api/customers-api";
 import type { Product } from "@/features/products/api/products-api";
 import { ApiError } from "@/lib/api/client";
 import { formatAmount } from "@/lib/format";
 
-import { createOrder, type Order } from "../api/orders-api";
+import {
+  createOrder,
+  ORDER_SOURCES,
+  type Order,
+} from "../api/orders-api";
 import {
   orderCreateSchema,
   type OrderCreateFormPayload,
   type OrderCreateFormValues,
 } from "../schemas/orders.schemas";
-import { roundToTwoDecimals } from "../utils/orders.utils";
+import {
+  formatOrderSource,
+  roundToTwoDecimals,
+} from "../utils/orders.utils";
 import { CustomerPickerDialog } from "./order-form/customer-picker-dialog";
+import { OrderChannelSection } from "./order-form/order-channel-section";
 import { OrderChargesSection } from "./order-form/order-charges-section";
 import {
   OrderCustomerSection,
@@ -44,6 +53,7 @@ interface OrderCreateFormProps {
 function toDefaultValues(): OrderCreateFormValues {
   return {
     customerId: "",
+    source: "OTHER",
     items: [],
     discountAmount: "0",
     shippingFee: "0",
@@ -53,6 +63,8 @@ function toDefaultValues(): OrderCreateFormValues {
     shippingAddress: "",
     shippingCity: "",
     shippingPostalCode: "",
+    shippingCarrier: "",
+    trackingNumber: "",
     customerNote: "",
     internalNote: "",
   };
@@ -222,6 +234,7 @@ export function OrderCreateForm({ onCreated, onCancel }: OrderCreateFormProps) {
     try {
       const created = await createOrder({
         ...(values.customerId ? { customerId: values.customerId } : {}),
+        source: values.source,
         items: values.items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -234,6 +247,8 @@ export function OrderCreateForm({ onCreated, onCancel }: OrderCreateFormProps) {
         shippingAddress: values.shippingAddress,
         shippingCity: values.shippingCity,
         shippingPostalCode: values.shippingPostalCode,
+        shippingCarrier: values.shippingCarrier,
+        trackingNumber: values.trackingNumber,
         customerNote: values.customerNote,
         internalNote: values.internalNote,
       });
@@ -339,6 +354,41 @@ export function OrderCreateForm({ onCreated, onCancel }: OrderCreateFormProps) {
                 register={register}
                                 errors={errors}
                 subtotal={formatAmount(subtotalPreview)}
+                isSubmitting={isSubmitting}
+              />
+            </OrderFormSection>
+
+            <OrderFormSection
+              title="Channel & delivery"
+              description="Where this order came from, and how it is being sent if you use a courier."
+            >
+              <OrderChannelSection
+                register={register}
+                sourceField={
+                  <Controller
+                    control={control}
+                    name="source"
+                    render={({ field }) => (
+                      <NativeSelect
+                        id="order-source"
+                        ariaLabel="Order channel"
+                        value={field.value}
+                        onChange={(event) =>
+                          field.onChange(event.target.value)
+                        }
+                        onBlur={field.onBlur}
+                        name={field.name}
+                        disabled={isSubmitting}
+                        options={ORDER_SOURCES.map((source) => ({
+                          value: source,
+                          label: formatOrderSource(source),
+                        }))}
+                      />
+                    )}
+                  />
+                }
+                shippingCarrierError={errors.shippingCarrier?.message}
+                trackingNumberError={errors.trackingNumber?.message}
                 isSubmitting={isSubmitting}
               />
             </OrderFormSection>

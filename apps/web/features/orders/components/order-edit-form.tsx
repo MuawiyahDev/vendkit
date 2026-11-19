@@ -12,19 +12,26 @@ import {
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
+import { NativeSelect } from "@/components/shared/native-select";
 import { CustomerFormDialog } from "@/features/customers/components/customer-form-dialog";
 import type { Customer } from "@/features/customers/api/customers-api";
 import type { Product } from "@/features/products/api/products-api";
 import { ApiError } from "@/lib/api/client";
 
-import { updateOrder, type Order } from "../api/orders-api";
+import {
+  ORDER_SOURCES,
+  updateOrder,
+  type Order,
+} from "../api/orders-api";
 import { useOrderProducts } from "../hooks/use-order-products";
 import {
   orderUpdateSchema,
   type OrderUpdateFormPayload,
   type OrderUpdateFormValues,
 } from "../schemas/orders.schemas";
+import { formatOrderSource } from "../utils/orders.utils";
 import { CustomerPickerDialog } from "./order-form/customer-picker-dialog";
+import { OrderChannelSection } from "./order-form/order-channel-section";
 import { OrderCustomerSection } from "./order-form/order-customer-section";
 import { OrderFormActions } from "./order-form/order-form-actions";
 import { OrderFormSection } from "./order-form/order-form-section";
@@ -173,6 +180,7 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
     try {
       const saved = await updateOrder(order.id, {
         ...customerPayload,
+        source: values.source,
         items: values.items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -182,6 +190,8 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
         shippingAddress: values.shippingAddress,
         shippingCity: values.shippingCity,
         shippingPostalCode: values.shippingPostalCode,
+        shippingCarrier: values.shippingCarrier,
+        trackingNumber: values.trackingNumber,
         customerNote: values.customerNote,
         internalNote: values.internalNote,
       });
@@ -318,6 +328,39 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
           </OrderFormSection>
 
           <OrderFormSection
+            title="Channel & delivery"
+            description="Update where this order came from and how it is being sent."
+          >
+            <OrderChannelSection
+              register={register}
+              sourceField={
+                <Controller
+                  control={control}
+                  name="source"
+                  render={({ field }) => (
+                    <NativeSelect
+                      id="order-source"
+                      ariaLabel="Order channel"
+                      value={field.value}
+                      onChange={(event) => field.onChange(event.target.value)}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      disabled={isSubmitting}
+                      options={ORDER_SOURCES.map((source) => ({
+                        value: source,
+                        label: formatOrderSource(source),
+                      }))}
+                    />
+                  )}
+                />
+              }
+              shippingCarrierError={errors.shippingCarrier?.message}
+              trackingNumberError={errors.trackingNumber?.message}
+              isSubmitting={isSubmitting}
+            />
+          </OrderFormSection>
+
+          <OrderFormSection
             title="Shipping details"
             description="Update where this order should be delivered."
           >
@@ -403,6 +446,7 @@ export function OrderEditForm({ order, onSaved, onCancel }: OrderEditFormProps) 
 function toDefaultValues(order: Order): OrderUpdateFormValues {
   return {
     customerId: order.customer?.id ?? "",
+    source: order.source,
     items: order.items.map((item) => ({
       productId: item.productId,
       quantity: item.quantity,
@@ -412,6 +456,8 @@ function toDefaultValues(order: Order): OrderUpdateFormValues {
     shippingAddress: order.shippingAddress ?? "",
     shippingCity: order.shippingCity ?? "",
     shippingPostalCode: order.shippingPostalCode ?? "",
+    shippingCarrier: order.shippingCarrier ?? "",
+    trackingNumber: order.trackingNumber ?? "",
     customerNote: order.customerNote ?? "",
     internalNote: order.internalNote ?? "",
   };

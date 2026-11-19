@@ -42,6 +42,19 @@ describe("WhatsApp templates", () => {
     );
   });
 
+  it("includes carrier and tracking on the status update when available", () => {
+    expect(
+      renderWhatsAppTemplate("status-update", {
+        ...baseOrder,
+        status: "SHIPPED",
+        shippingCarrier: "Sundarban Courier",
+        trackingNumber: "SC-12345",
+      }),
+    ).toBe(
+      "Hello Ayesha Rahman, your order #ORD-2002 status has been updated to Shipped. It is with Sundarban Courier. Tracking number: SC-12345.",
+    );
+  });
+
   it("uses the order currency formatter for the outstanding balance", () => {
     const message = renderWhatsAppTemplate("payment-reminder", baseOrder);
 

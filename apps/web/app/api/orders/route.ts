@@ -27,6 +27,16 @@ const ORDER_STATUSES = new Set([
   "CANCELLED",
 ]);
 const PAYMENT_STATUSES = new Set(["UNPAID", "PARTIALLY_PAID", "PAID"]);
+const ORDER_SOURCES = new Set([
+  "FACEBOOK",
+  "INSTAGRAM",
+  "WHATSAPP",
+  "TIKTOK",
+  "WEBSITE",
+  "PHONE",
+  "WALK_IN",
+  "OTHER",
+]);
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}(T[\d:.]+Z?)?$/;
@@ -74,6 +84,14 @@ function buildListQueryString(searchParams: URLSearchParams): string | null {
       return null;
     }
     params.set("paymentStatus", paymentStatus);
+  }
+
+  const source = searchParams.get("source");
+  if (source !== null) {
+    if (!ORDER_SOURCES.has(source)) {
+      return null;
+    }
+    params.set("source", source);
   }
 
   const customerId = searchParams.get("customerId");

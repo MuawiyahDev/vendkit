@@ -50,4 +50,8 @@ export type WhatsAppOrder = Pick<
   | "amountPaid"
   | "shippingName"
   | "shippingPhone"
->;
+> & {
+  /** Present on detail orders; used to include shipment tracking. */
+  shippingCarrier?: string | null;
+  trackingNumber?: string | null;
+};

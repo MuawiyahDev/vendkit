@@ -1,22 +1,23 @@
 "use client";
 
-import { ListFilter, RefreshCw, RotateCcw } from "lucide-react";
+import { Download, ListFilter, RefreshCw, RotateCcw } from "lucide-react";
 
 import { NativeSelect } from "@/components/shared/native-select";
 import { SearchInput } from "@/components/shared/search-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { ORDER_STATUSES, PAYMENT_STATUSES } from "../api/orders-api";
+import { ORDER_SOURCES, ORDER_STATUSES, PAYMENT_STATUSES } from "../api/orders-api";
 import type {
   OrderSortField,
   SortOrder,
 } from "../api/orders-api";
 import type {
+  OrderSourceFilter,
   OrderStatusFilter,
   PaymentStatusFilter,
 } from "../hooks/use-orders";
-import { formatStatusLabel } from "../utils/orders.utils";
+import { formatOrderSource, formatStatusLabel } from "../utils/orders.utils";
 import { OrdersSortMenu } from "./orders-sort-menu";
 
 const STATUS_OPTIONS: { value: OrderStatusFilter; label: string }[] = [
@@ -35,6 +36,14 @@ const PAYMENT_OPTIONS: { value: PaymentStatusFilter; label: string }[] = [
   })),
 ];
 
+const SOURCE_OPTIONS: { value: OrderSourceFilter; label: string }[] = [
+  { value: "all", label: "All channels" },
+  ...ORDER_SOURCES.map((source) => ({
+    value: source as OrderSourceFilter,
+    label: formatOrderSource(source),
+  })),
+];
+
 interface OrdersToolbarProps {
   searchInput: string;
   onSearchChange: (value: string) => void;
@@ -45,6 +54,8 @@ interface OrdersToolbarProps {
   onStatusFilterChange: (value: OrderStatusFilter) => void;
   paymentStatusFilter: PaymentStatusFilter;
   onPaymentStatusFilterChange: (value: PaymentStatusFilter) => void;
+  sourceFilter: OrderSourceFilter;
+  onSourceFilterChange: (value: OrderSourceFilter) => void;
   dateFrom: string;
   onDateFromChange: (value: string) => void;
   dateTo: string;
@@ -57,6 +68,8 @@ interface OrdersToolbarProps {
   }) => void;
   onRefresh: () => void;
   onResetFilters: () => void;
+  onExport: () => void;
+  isExporting: boolean;
   hasActiveFilters: boolean;
 }
 
@@ -75,6 +88,8 @@ export function OrdersToolbar({
   onStatusFilterChange,
   paymentStatusFilter,
   onPaymentStatusFilterChange,
+  sourceFilter,
+  onSourceFilterChange,
   dateFrom,
   onDateFromChange,
   dateTo,
@@ -84,6 +99,8 @@ export function OrdersToolbar({
   onSortChange,
   onRefresh,
   onResetFilters,
+  onExport,
+  isExporting,
   hasActiveFilters,
 }: OrdersToolbarProps) {
   return (
@@ -116,6 +133,19 @@ export function OrdersToolbar({
               <span className="hidden sm:inline">Reset filters</span>
             </Button>
           ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={isInitialLoading || isExporting}
+          >
+            <Download
+              className={isExporting ? "animate-pulse" : undefined}
+              aria-hidden="true"
+            />
+            {isExporting ? "Exporting…" : "Export CSV"}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -159,6 +189,16 @@ export function OrdersToolbar({
           }
           className="w-full sm:w-auto sm:min-w-44"
           options={PAYMENT_OPTIONS}
+        />
+        <NativeSelect
+          ariaLabel="Filter by order channel"
+          value={sourceFilter}
+          disabled={isInitialLoading}
+          onChange={(event) =>
+            onSourceFilterChange(event.target.value as OrderSourceFilter)
+          }
+          className="w-full sm:w-auto sm:min-w-40"
+          options={SOURCE_OPTIONS}
         />
         <label className="text-muted-foreground flex items-center gap-2 text-xs">
           <span className="whitespace-nowrap">From</span>

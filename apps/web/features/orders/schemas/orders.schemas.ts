@@ -8,6 +8,7 @@ import {
 
 import {
   CREATABLE_PAYMENT_STATUSES,
+  ORDER_SOURCES,
   PAYMENT_METHODS,
 } from "../api/orders-api";
 
@@ -18,6 +19,8 @@ export const MAX_ORDER_ITEM_LINES = 100;
 export const MAX_ORDER_ITEM_QUANTITY = 100000;
 export const MAX_ORDER_AMOUNT_DECIMAL_PLACES = 2;
 export const SHIPPING_NAME_MAX_LENGTH = 200;
+export const SHIPPING_CARRIER_MAX_LENGTH = 100;
+export const TRACKING_NUMBER_MAX_LENGTH = 100;
 
 const AMOUNT_PATTERN = new RegExp(
   `^\\d{1,12}(\\.\\d{1,${MAX_ORDER_AMOUNT_DECIMAL_PLACES}})?$`,
@@ -80,6 +83,7 @@ const orderItemFieldSchema = z.object({
 
 export const orderCreateSchema = z.object({
   customerId: z.string().optional(),
+  source: z.enum(ORDER_SOURCES),
   items: z
     .array(orderItemFieldSchema)
     .min(1, "Add at least one product to the order")
@@ -95,12 +99,15 @@ export const orderCreateSchema = z.object({
   shippingAddress: optionalText(500),
   shippingCity: optionalText(100),
   shippingPostalCode: optionalText(20),
+  shippingCarrier: optionalText(SHIPPING_CARRIER_MAX_LENGTH),
+  trackingNumber: optionalText(TRACKING_NUMBER_MAX_LENGTH),
   customerNote: optionalText(ORDER_NOTE_MAX_LENGTH),
   internalNote: optionalText(ORDER_NOTE_MAX_LENGTH),
 });
 
 export const orderUpdateSchema = z.object({
   customerId: z.string().optional(),
+  source: z.enum(ORDER_SOURCES),
   items: z
     .array(orderItemFieldSchema)
     .min(1, "Add at least one product to the order")
@@ -113,6 +120,8 @@ export const orderUpdateSchema = z.object({
   shippingAddress: optionalText(500),
   shippingCity: optionalText(100),
   shippingPostalCode: optionalText(20),
+  shippingCarrier: optionalText(SHIPPING_CARRIER_MAX_LENGTH),
+  trackingNumber: optionalText(TRACKING_NUMBER_MAX_LENGTH),
   customerNote: optionalText(ORDER_NOTE_MAX_LENGTH),
   internalNote: optionalText(ORDER_NOTE_MAX_LENGTH),
 });

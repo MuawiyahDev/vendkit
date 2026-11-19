@@ -75,8 +75,16 @@ export function renderWhatsAppTemplate(
   switch (templateId) {
     case "order-confirmation":
       return `Hello ${name}, thank you for your order #${orderNumber}. Your order has been received successfully.`;
-    case "status-update":
+    case "status-update": {
+      const tracking = order.trackingNumber?.trim();
+
+      if (tracking) {
+        const carrier = order.shippingCarrier?.trim();
+        return `Hello ${name}, your order #${orderNumber} status has been updated to ${formatStatusLabel(order.status)}.${carrier ? ` It is with ${carrier}.` : ""} Tracking number: ${tracking}.`;
+      }
+
       return `Hello ${name}, your order #${orderNumber} status has been updated to ${formatStatusLabel(order.status)}.`;
+    }
     case "payment-reminder":
       return `Hello ${name}, this is a reminder regarding payment for your order #${orderNumber}. The outstanding amount is ${formatCurrency(outstandingBalance(order), order.currency)}.`;
     case "order-ready":

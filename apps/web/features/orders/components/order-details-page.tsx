@@ -48,10 +48,12 @@ import {
 } from "./order-status-badge";
 import { OrderStatusChangeDialog } from "./order-status-change-dialog";
 import { OrderSummaryCard } from "./order-summary-card";
+import { OrderTimelineCard } from "./order-timeline-card";
 import {
   canCancelOrder,
   canDeleteOrder,
   formatDateTime,
+  formatOrderSource,
   formatStatusLabel,
   nextOrderStatus,
   outstandingBalance,
@@ -297,7 +299,8 @@ export function OrderDetailsPage() {
               <OrderStatusBadge status={order.status} />
               <PaymentStatusBadge status={order.paymentStatus} />
               <span className="text-muted-foreground text-sm">
-                Placed {formatDateTime(order.createdAt)}
+                {formatOrderSource(order.source)} · Placed{" "}
+                {formatDateTime(order.createdAt)}
               </span>
             </div>
           </div>
@@ -375,6 +378,7 @@ export function OrderDetailsPage() {
               void handlePaymentStatusChange(payment, status);
             }}
           />
+          <OrderTimelineCard events={order.events} />
         </div>
 
         <div className="flex w-full flex-col gap-6">

@@ -11,7 +11,12 @@ import {
 } from "@/components/ui/card";
 
 import type { OrderBase } from "../api/orders-api";
-import { formatOptionalValue, orderCustomerName, orderCustomerPhone } from "../utils/orders.utils";
+import {
+  formatOptionalValue,
+  formatOrderSource,
+  orderCustomerName,
+  orderCustomerPhone,
+} from "../utils/orders.utils";
 
 interface OrderCustomerCardProps {
   order: OrderBase;
@@ -45,7 +50,9 @@ export function OrderCustomerCard({ order }: OrderCustomerCardProps) {
     order.shippingPhone !== null ||
     order.shippingAddress !== null ||
     order.shippingCity !== null ||
-    order.shippingPostalCode !== null;
+    order.shippingPostalCode !== null ||
+    order.shippingCarrier !== null ||
+    order.trackingNumber !== null;
 
   return (
     <Card className="gap-0 overflow-hidden py-0">
@@ -108,7 +115,10 @@ export function OrderCustomerCard({ order }: OrderCustomerCardProps) {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <InfoRow label="City" value={order.shippingCity ?? null} />
                   <InfoRow label="Postal code" value={order.shippingPostalCode ?? null} />
+                  <InfoRow label="Carrier" value={order.shippingCarrier ?? null} />
+                  <InfoRow label="Tracking number" value={order.trackingNumber ?? null} />
                 </div>
+                <InfoRow label="Channel" value={formatOrderSource(order.source)} />
               </>
             ) : (
               <p className="text-muted-foreground py-2.5 text-sm">
