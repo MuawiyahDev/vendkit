@@ -177,6 +177,20 @@ the server as part of your host backup routine.
 - Run one API instance. Authentication rate limiting is in-memory and applies
   per process.
 
+### Verify a deployment
+
+After the stack starts:
+
+1. Confirm both containers are healthy with `docker compose ps`.
+2. Confirm the API health check with
+   `docker compose exec api wget -qO- http://localhost:4000/api/health`.
+3. Create the first account and complete the dashboard setup checklist.
+4. Create a product, customer, and order, then download an invoice PDF.
+5. Download a backup, restore it, and confirm the order and invoice still load.
+
+Keep a copy of backups outside the server. A backup on the same disk as the
+database is not a disaster-recovery plan.
+
 ## Project structure
 
 ```
@@ -187,6 +201,14 @@ packages/ui       Shared UI package
 docs              Operational documentation
 ```
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, checks, and coding
+conventions. Report security issues privately as described in
+[SECURITY.md](SECURITY.md).
+
 ## License
 
-See [LICENSE](LICENSE).
+VendKit is licensed under the [GNU Affero General Public License v3.0](LICENSE).
+If you run a modified version as a network service, the AGPL requires you to
+offer its source code to the people using it.
