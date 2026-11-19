@@ -19,6 +19,7 @@ import { InvoicesModule } from './invoices/invoices.module.js';
 import { OrdersModule } from './orders/orders.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { ProductsModule } from './products/products.module.js';
+import { ReportsModule } from './reports/reports.module.js';
 import { SettingsModule } from './settings/settings.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -41,6 +42,7 @@ import { UsersModule } from './users/users.module.js';
     OrdersModule,
     InvoicesModule,
     DashboardModule,
+    ReportsModule,
     SettingsModule,
     BackupsModule,
     HealthModule,
