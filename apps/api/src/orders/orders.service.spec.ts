@@ -19,6 +19,7 @@ import {
 import { InventoryService } from '../inventory/inventory.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
+import { OrderEventsService } from './order-events.service.js';
 import type { CreateOrderDto } from './dto/create-order.dto.js';
 import type { CreateOrderPaymentDto } from './dto/create-order-payment.dto.js';
 import type { UpdateOrderDto } from './dto/update-order.dto.js';
@@ -30,6 +31,7 @@ const customerFixture: Customer = {
   id: '3f1d2c9a-0000-4000-8000-000000000001',
   name: 'Ayesha Rahman',
   phone: '+8801712345678',
+  phoneNormalized: '8801712345678',
   email: 'ayesha@example.com',
   address: 'House 12, Road 5',
   city: 'Dhaka',
@@ -72,6 +74,7 @@ const orderFixture = (overrides: Partial<Order> = {}): Order => ({
 
   status: OrderStatus.PENDING,
   paymentStatus: PaymentStatus.UNPAID,
+  source: 'OTHER',
   currency: 'BDT',
   subtotal: new Prisma.Decimal('500.00'),
   discountAmount: new Prisma.Decimal('0.00'),
@@ -85,6 +88,8 @@ const orderFixture = (overrides: Partial<Order> = {}): Order => ({
   shippingAddress: 'House 12, Road 5',
   shippingCity: 'Dhaka',
   shippingPostalCode: '1207',
+  shippingCarrier: null,
+  trackingNumber: null,
   customerNote: null,
   internalNote: null,
   cancellationReason: null,
@@ -134,6 +139,7 @@ const orderWithRelationsFixture = (overrides: Partial<Order> = {}) => ({
   },
   items: [orderItemFixture()],
   payments: [],
+  events: [],
 });
 
 const orderSummaryFixture = (overrides: Partial<Order> = {}) => ({
@@ -212,6 +218,9 @@ describe('OrdersService', () => {
     invoice: {
       findUnique: vi.fn(),
     },
+    orderEvent: {
+      create: vi.fn(),
+    },
   };
 
   const prismaMock = {
@@ -250,6 +259,10 @@ describe('OrdersService', () => {
     recordMovement: vi.fn(),
   };
 
+  const eventsMock = {
+    record: vi.fn(),
+  };
+
   beforeEach(async () => {
     vi.clearAllMocks();
 
@@ -280,6 +293,7 @@ describe('OrdersService', () => {
         { provide: PrismaService, useValue: prismaMock },
         { provide: SettingsService, useValue: settingsMock },
         { provide: InventoryService, useValue: inventoryMock },
+        { provide: OrderEventsService, useValue: eventsMock },
       ],
     }).compile();
 
@@ -346,6 +360,13 @@ describe('OrdersService', () => {
       });
       expect(result.totalAmount).toBe('500');
       expect(result.items).toHaveLength(1);
+      expect(eventsMock.record).toHaveBeenCalledWith(
+        txMock,
+        expect.objectContaining({
+          orderId: orderFixture().id,
+          type: 'ORDER_CREATED',
+        }),
+      );
     });
 
     it('applies order-level discounts, shipping fees and taxes', async () => {
@@ -732,7 +753,7 @@ describe('OrdersService', () => {
       const updated = orderWithRelationsFixture({
         internalNote: 'Call first',
       });
-      prismaMock.client.order.update.mockResolvedValue(updated);
+      txMock.order.update.mockResolvedValue(updated);
 
       const dto: UpdateOrderDto = {
         internalNote: 'Call first',
@@ -740,7 +761,7 @@ describe('OrdersService', () => {
       };
       const result = await service.update(orderFixture().id, dto);
 
-      expect(prismaMock.client.order.update).toHaveBeenCalledWith({
+      expect(txMock.order.update).toHaveBeenCalledWith({
         where: { id: orderFixture().id },
         data: { internalNote: 'Call first', shippingCity: 'Rajshahi' },
         include: expect.any(Object),
@@ -821,6 +842,13 @@ describe('OrdersService', () => {
       expect(
         (txMock.order.update.mock.calls[0] as [{ data: object }])[0].data,
       ).not.toHaveProperty('paymentStatus');
+      expect(eventsMock.record).toHaveBeenCalledWith(
+        txMock,
+        expect.objectContaining({
+          orderId: orderFixture().id,
+          type: 'STATUS_CHANGED',
+        }),
+      );
       expect(result.status).toBe(OrderStatus.CONFIRMED);
     });
 

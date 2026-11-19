@@ -62,7 +62,8 @@ export class InvoicesController {
   cancel(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CancelInvoiceDto,
+    @CurrentUser() user: User,
   ) {
-    return this.invoicesService.cancel(id, dto);
+    return this.invoicesService.cancel(id, dto, user);
   }
 }

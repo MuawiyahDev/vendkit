@@ -8,6 +8,7 @@ import {
 import type { InvoiceNumberingService } from '../settings/invoice-numbering.service.js';
 import type { SettingsService } from '../settings/settings.service.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
+import type { OrderEventsService } from '../orders/order-events.service.js';
 import { InvoicesService } from './invoices.service.js';
 
 const NOW = new Date('2026-11-18T10:00:00.000Z');
@@ -19,6 +20,7 @@ function orderFixture(overrides: Partial<Order> = {}): Order {
     customerId: null,
     status: OrderStatus.PENDING,
     paymentStatus: 'UNPAID',
+    source: 'OTHER',
     currency: 'BDT',
     subtotal: new Prisma.Decimal('500.00'),
     discountAmount: new Prisma.Decimal('0.00'),
@@ -32,6 +34,8 @@ function orderFixture(overrides: Partial<Order> = {}): Order {
     shippingAddress: null,
     shippingCity: null,
     shippingPostalCode: null,
+    shippingCarrier: null,
+    trackingNumber: null,
     customerNote: null,
     internalNote: null,
     cancellationReason: null,
@@ -104,6 +108,7 @@ function invoiceRow(overrides: Record<string, unknown> = {}) {
       customer: null,
       items: [],
       payments: [],
+      events: [],
     },
     ...overrides,
   };
@@ -116,6 +121,9 @@ function createHarness() {
       findUnique: vi.fn().mockResolvedValue(null),
       create: vi.fn(),
       update: vi.fn(),
+    },
+    orderEvent: {
+      create: vi.fn(),
     },
   };
 
@@ -149,6 +157,7 @@ function createHarness() {
     prisma as unknown as PrismaService,
     settings as unknown as SettingsService,
     numbering as unknown as InvoiceNumberingService,
+    { record: vi.fn() } as unknown as OrderEventsService,
   );
 
   return { service, tx, prisma, settings, numbering };
@@ -162,6 +171,7 @@ describe('InvoicesService', () => {
       customer: null,
       items: [],
       payments: [],
+      events: [],
     });
     tx.invoice.create.mockResolvedValue(invoiceRow());
 
@@ -191,6 +201,7 @@ describe('InvoicesService', () => {
       customer: null,
       items: [],
       payments: [],
+      events: [],
     });
 
     await expect(
@@ -210,6 +221,7 @@ describe('InvoicesService', () => {
       customer: null,
       items: [],
       payments: [],
+      events: [],
     });
 
     await expect(

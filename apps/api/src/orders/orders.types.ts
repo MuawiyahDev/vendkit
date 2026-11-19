@@ -3,6 +3,8 @@ import {
   OrderStatus,
   PaymentStatus,
   Prisma,
+  type OrderEventType,
+  type OrderSource,
   type PaymentMethod,
 } from '@repo/database';
 import {
@@ -83,12 +85,22 @@ export interface OrderPaymentRow {
   updatedAt: Date;
 }
 
+export interface OrderEventResponse {
+  id: string;
+  type: OrderEventType;
+  message: string;
+  metadata: Prisma.JsonValue | null;
+  actorName: string | null;
+  createdAt: Date;
+}
+
 export interface OrderBaseResponse {
   id: string;
   orderNumber: string;
   customer: OrderCustomerSummary | null;
   status: OrderStatus;
   paymentStatus: PaymentStatus;
+  source: OrderSource;
   currency: string;
   subtotal: string;
   discountAmount: string;
@@ -101,6 +113,8 @@ export interface OrderBaseResponse {
   shippingAddress: string | null;
   shippingCity: string | null;
   shippingPostalCode: string | null;
+  shippingCarrier: string | null;
+  trackingNumber: string | null;
   customerNote: string | null;
   internalNote: string | null;
   cancellationReason: string | null;
@@ -116,6 +130,7 @@ export interface OrderSummaryResponse extends OrderBaseResponse {
 export interface OrderResponse extends OrderBaseResponse {
   items: OrderItemResponse[];
   payments: OrderPaymentResponse[];
+  events: OrderEventResponse[];
 }
 
 export interface PaginatedOrders {

@@ -45,6 +45,7 @@ export const ORDER_DETAIL_INCLUDE = {
   customer: { select: ORDER_CUSTOMER_SELECT },
   items: { orderBy: { createdAt: 'asc' as const } },
   payments: { orderBy: { createdAt: 'asc' as const } },
+  events: { orderBy: { createdAt: 'asc' as const } },
 } satisfies Prisma.OrderInclude;
 
 export const ORDER_SUMMARY_INCLUDE = {

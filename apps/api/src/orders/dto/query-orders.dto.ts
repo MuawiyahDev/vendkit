@@ -10,7 +10,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { OrderStatus, PaymentStatus } from '@repo/database';
+import { OrderStatus, OrderSource, PaymentStatus } from '@repo/database';
 
 export const MAX_PAGE_SIZE = 100;
 
@@ -30,6 +30,8 @@ export type OrderSortOrder = (typeof ORDER_SORT_ORDERS)[number];
 const ORDER_STATUS_VALUES = Object.values(OrderStatus);
 
 const PAYMENT_STATUS_VALUES = Object.values(PaymentStatus);
+
+const ORDER_SOURCE_VALUES = Object.values(OrderSource);
 
 export class QueryOrdersDto {
   @IsOptional()
@@ -58,6 +60,10 @@ export class QueryOrdersDto {
   @IsOptional()
   @IsIn(PAYMENT_STATUS_VALUES)
   paymentStatus?: PaymentStatus;
+
+  @IsOptional()
+  @IsIn(ORDER_SOURCE_VALUES)
+  source?: OrderSource;
 
   @IsOptional()
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))

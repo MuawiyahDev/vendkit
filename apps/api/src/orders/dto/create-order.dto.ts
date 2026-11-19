@@ -4,6 +4,7 @@ import {
   ArrayNotEmpty,
   IsArray,
   IsBoolean,
+  IsEnum,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -17,6 +18,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { OrderSource } from '@repo/database';
 import {
   normalizePhone,
   PHONE_INVALID_MESSAGE,
@@ -37,6 +39,8 @@ export const MAX_ORDER_ITEM_LINES = 100;
 export const ORDER_NOTE_MAX_LENGTH = CUSTOMER_NOTES_MAX_LENGTH;
 export const ORDER_NUMBER_MAX_LENGTH = 50;
 export const ORDER_NUMBER_PATTERN = /^[A-Z0-9][A-Z0-9._/-]*$/;
+export const SHIPPING_CARRIER_MAX_LENGTH = 100;
+export const TRACKING_NUMBER_MAX_LENGTH = 100;
 
 export class CreateOrderItemDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
@@ -111,6 +115,10 @@ export class CreateOrderDto {
   @MaxLength(ORDER_NUMBER_MAX_LENGTH)
   orderNumber?: string;
 
+  @IsOptional()
+  @IsEnum(OrderSource)
+  source?: OrderSource;
+
   @IsArray()
   @ArrayNotEmpty()
   @ArrayMaxSize(MAX_ORDER_ITEM_LINES)
@@ -172,6 +180,18 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(CUSTOMER_POSTAL_CODE_MAX_LENGTH)
   shippingPostalCode?: string | null;
+
+  @IsOptional()
+  @Transform(emptyStringToNull)
+  @IsString()
+  @MaxLength(SHIPPING_CARRIER_MAX_LENGTH)
+  shippingCarrier?: string | null;
+
+  @IsOptional()
+  @Transform(emptyStringToNull)
+  @IsString()
+  @MaxLength(TRACKING_NUMBER_MAX_LENGTH)
+  trackingNumber?: string | null;
 
   @IsOptional()
   @Transform(emptyStringToNull)

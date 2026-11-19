@@ -5,11 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  OrderEventType,
   OrderStatus,
   Prisma,
   type User,
 } from '@repo/database';
 import { ORDER_DETAIL_INCLUDE } from '../orders/orders.constants.js';
+import { OrderEventsService } from '../orders/order-events.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { InvoiceNumberingService } from '../settings/invoice-numbering.service.js';
 import { SettingsService } from '../settings/settings.service.js';
@@ -45,6 +47,7 @@ export class InvoicesService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly numbering: InvoiceNumberingService,
+    private readonly events: OrderEventsService,
   ) {}
 
   async createForOrder(
@@ -124,6 +127,18 @@ export class InvoicesService {
             createdByName: resolveActorName(actor),
           },
           include: INVOICE_DETAIL_INCLUDE,
+        });
+
+        await this.events.record(tx, {
+          orderId,
+          type: OrderEventType.INVOICE_CREATED,
+          message: `Invoice ${invoice.invoiceNumber} created`,
+          metadata: {
+            invoiceId: invoice.id,
+            invoiceNumber: invoice.invoiceNumber,
+            status: invoice.status,
+          },
+          actor,
         });
 
         return toInvoiceDetailResponse(invoice);
@@ -268,6 +283,17 @@ export class InvoicesService {
         include: INVOICE_DETAIL_INCLUDE,
       });
 
+      await this.events.record(tx, {
+        orderId: issued.orderId,
+        type: OrderEventType.INVOICE_ISSUED,
+        message: `Invoice ${issued.invoiceNumber} issued`,
+        metadata: {
+          invoiceId: issued.id,
+          invoiceNumber: issued.invoiceNumber,
+        },
+        actor,
+      });
+
       return toInvoiceDetailResponse(issued);
     });
   }
@@ -275,6 +301,7 @@ export class InvoicesService {
   async cancel(
     id: string,
     dto: CancelInvoiceDto,
+    actor: User | null = null,
   ): Promise<InvoiceDetailResponse> {
     const settings = await this.settings.getInvoiceSettings();
 
@@ -306,6 +333,18 @@ export class InvoicesService {
           cancellationReason: dto.cancellationReason?.trim() || null,
         },
         include: INVOICE_DETAIL_INCLUDE,
+      });
+
+      await this.events.record(tx, {
+        orderId: cancelled.orderId,
+        type: OrderEventType.INVOICE_CANCELLED,
+        message: `Invoice ${cancelled.invoiceNumber} cancelled`,
+        metadata: {
+          invoiceId: cancelled.id,
+          invoiceNumber: cancelled.invoiceNumber,
+          reason: dto.cancellationReason?.trim() || null,
+        },
+        actor,
       });
 
       return toInvoiceDetailResponse(cancelled);

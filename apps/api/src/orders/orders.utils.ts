@@ -4,7 +4,7 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { OrderPaymentStatus, OrderStatus, PaymentStatus, Prisma } from '@repo/database';
+import { OrderPaymentStatus, OrderSource, OrderStatus, PaymentStatus, Prisma } from '@repo/database';
 import {
   MAX_ORDER_ITEM_QUANTITY,
   type CreateOrderDto,
@@ -22,6 +22,14 @@ export function canTransitionOrderStatus(
   to: OrderStatus,
 ): boolean {
   return ORDER_STATUS_TRANSITIONS[from].includes(to);
+}
+
+export function formatOrderSource(source: OrderSource): string {
+  return source
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 export function canTransitionPaymentStatus(

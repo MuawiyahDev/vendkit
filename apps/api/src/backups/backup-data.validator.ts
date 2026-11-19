@@ -3,7 +3,9 @@ import {
   CurrencyPosition,
   InvoiceDefaultStatus,
   InvoiceStatus,
+  OrderEventType,
   OrderPaymentStatus,
+  OrderSource,
   OrderStatus,
   PaymentMethod,
   PaymentStatus,
@@ -143,6 +145,7 @@ const TABLE_FIELDS: Record<BackupTableName, Record<string, FieldRule>> = {
     id: str,
     name: str,
     phone: str,
+    phoneNormalized: strOptional,
     email: strOptional,
     address: strOptional,
     city: strOptional,
@@ -157,6 +160,7 @@ const TABLE_FIELDS: Record<BackupTableName, Record<string, FieldRule>> = {
     customerId: strOptional,
     status: enumRule(Object.values(OrderStatus)),
     paymentStatus: enumRule(Object.values(PaymentStatus)),
+    source: enumRule(Object.values(OrderSource), true),
     currency: str,
     subtotal: decimal,
     discountAmount: decimal,
@@ -170,6 +174,8 @@ const TABLE_FIELDS: Record<BackupTableName, Record<string, FieldRule>> = {
     shippingAddress: strOptional,
     shippingCity: strOptional,
     shippingPostalCode: strOptional,
+    shippingCarrier: strOptional,
+    trackingNumber: strOptional,
     customerNote: strOptional,
     internalNote: strOptional,
     cancellationReason: strOptional,
@@ -218,6 +224,16 @@ const TABLE_FIELDS: Record<BackupTableName, Record<string, FieldRule>> = {
     paidAt: dateOptional,
     createdAt: date,
     updatedAt: date,
+  },
+  orderEvents: {
+    id: str,
+    orderId: str,
+    type: enumRule(Object.values(OrderEventType)),
+    message: str,
+    metadata: jsonOptional,
+    actorId: strOptional,
+    actorName: strOptional,
+    createdAt: date,
   },
   invoices: {
     id: str,
@@ -412,7 +428,9 @@ export function validateBackupData(
     // to invoices for backups created before invoicing was persisted.
     if (
       recordsValue === undefined &&
-      (table === 'stockMovements' || table === 'invoices')
+      (table === 'stockMovements' ||
+        table === 'invoices' ||
+        table === 'orderEvents')
     ) {
       tables[table] = [];
       continue;
@@ -450,6 +468,9 @@ export function validateBackupData(
       }
       if (table === 'orderItems' && record.trackedInventory === null) {
         record.trackedInventory = true;
+      }
+      if (table === 'orders' && record.source === null) {
+        record.source = 'OTHER';
       }
 
       const id = record.id as string;
@@ -519,6 +540,10 @@ export function validateBackupRelations(
 
   for (const payment of data.tables.orderPayments) {
     assertReference(orderIds, payment.orderId, 'order');
+  }
+
+  for (const event of data.tables.orderEvents) {
+    assertReference(orderIds, event.orderId, 'order');
   }
 
   for (const invoice of data.tables.invoices) {

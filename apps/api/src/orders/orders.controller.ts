@@ -40,6 +40,12 @@ export class OrdersController {
   }
 
   @Permissions('order:read')
+  @Get('export')
+  exportCsv(@Query() query: QueryOrdersDto) {
+    return this.ordersService.exportCsv(query);
+  }
+
+  @Permissions('order:read')
   @Get('number/:orderNumber')
   findByNumber(@Param('orderNumber') orderNumber: string) {
     return this.ordersService.findByOrderNumber(orderNumber);
@@ -86,8 +92,9 @@ export class OrdersController {
   createPayment(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: CreateOrderPaymentDto,
+    @CurrentUser() user: User,
   ) {
-    return this.ordersService.createPayment(id, dto);
+    return this.ordersService.createPayment(id, dto, user);
   }
 
   @Permissions('order:read')
@@ -102,8 +109,9 @@ export class OrdersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Param('paymentId', ParseUUIDPipe) paymentId: string,
     @Body() dto: UpdateOrderPaymentStatusDto,
+    @CurrentUser() user: User,
   ) {
-    return this.ordersService.updatePaymentStatus(id, paymentId, dto);
+    return this.ordersService.updatePaymentStatus(id, paymentId, dto, user);
   }
 
   @Permissions('order:delete')

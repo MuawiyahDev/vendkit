@@ -1,5 +1,6 @@
 import type {
   OrderBaseResponse,
+  OrderEventResponse,
   OrderItemResponse,
   OrderPaymentResponse,
   OrderPaymentRow,
@@ -9,6 +10,19 @@ import type {
   OrderSummaryWithRelations,
   OrderWithRelations,
 } from './orders.types.js';
+
+export function toOrderEventResponse(
+  event: OrderWithRelations['events'][number],
+): OrderEventResponse {
+  return {
+    id: event.id,
+    type: event.type,
+    message: event.message,
+    metadata: event.metadata,
+    actorName: event.actorName,
+    createdAt: event.createdAt,
+  };
+}
 
 export function toPaymentResponse(
   payment: OrderPaymentRow,
@@ -35,6 +49,7 @@ export function toBaseResponse(
     customer: order.customer,
     status: order.status,
     paymentStatus: order.paymentStatus,
+    source: order.source,
     currency: order.currency,
     subtotal: order.subtotal.toString(),
     discountAmount: order.discountAmount.toString(),
@@ -47,6 +62,8 @@ export function toBaseResponse(
     shippingAddress: order.shippingAddress,
     shippingCity: order.shippingCity,
     shippingPostalCode: order.shippingPostalCode,
+    shippingCarrier: order.shippingCarrier,
+    trackingNumber: order.trackingNumber,
     customerNote: order.customerNote,
     internalNote: order.internalNote,
     cancellationReason: order.cancellationReason,
@@ -86,5 +103,6 @@ export function toOrderResponse(order: OrderWithRelations): OrderResponse {
       createdAt: item.createdAt,
     })),
     payments: order.payments.map((payment) => toPaymentResponse(payment)),
+    events: order.events.map((event) => toOrderEventResponse(event)),
   };
 }

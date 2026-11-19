@@ -5,7 +5,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import {
+  OrderEventType,
   OrderPaymentStatus,
+  OrderSource,
   OrderStatus,
   PaymentStatus,
   Prisma,
@@ -18,10 +20,17 @@ import {
   isPhoneLike,
   normalizePhone,
 } from '../common/utils/phone.util.js';
+import {
+  buildCsvFileName,
+  MAX_CSV_EXPORT_ROWS,
+  toCsv,
+} from '../common/utils/csv.util.js';
+import type { CsvExportResponse } from '../common/types/csv-export.types.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SettingsService } from '../settings/settings.service.js';
 import { calculateShippingCharge } from '../settings/settings.utils.js';
+import { OrderEventsService } from './order-events.service.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { CreateOrderPaymentDto } from './dto/create-order-payment.dto.js';
 import { CreateOrderReturnDto } from './dto/create-order-return.dto.js';
@@ -52,6 +61,7 @@ import {
   canTransitionOrderStatus,
   canTransitionPaymentStatus,
   derivePaymentStatus,
+  formatOrderSource,
   generateOrderNumber,
   isUniqueConstraintViolation,
   mapOrderKnownErrors,
@@ -65,6 +75,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly settings: SettingsService,
     private readonly inventory: InventoryService,
+    private readonly events: OrderEventsService,
   ) {}
 
   async create(
@@ -276,6 +287,7 @@ export class OrdersService {
               customerId,
               status: settings.defaultStatus,
               paymentStatus: PaymentStatus.UNPAID,
+              source: dto.source ?? OrderSource.OTHER,
               currency: settings.currency,
               subtotal,
               discountAmount,
@@ -291,6 +303,8 @@ export class OrdersService {
               shippingCity: dto.shippingCity ?? shippingDefaults.city,
               shippingPostalCode:
                 dto.shippingPostalCode ?? shippingDefaults.postalCode,
+              shippingCarrier: dto.shippingCarrier ?? null,
+              trackingNumber: dto.trackingNumber ?? null,
               customerNote: dto.customerNote ?? settings.defaultNotes,
               internalNote: dto.internalNote ?? null,
               items: {
@@ -323,6 +337,18 @@ export class OrdersService {
             });
           }
 
+          await this.events.record(tx, {
+            orderId: created.id,
+            type: OrderEventType.ORDER_CREATED,
+            message: `Order created from ${formatOrderSource(created.source)}`,
+            metadata: {
+              source: created.source,
+              totalAmount: created.totalAmount.toString(),
+              itemCount: created.items.length,
+            },
+            actor,
+          });
+
           return created;
         });
 
@@ -348,6 +374,102 @@ export class OrdersService {
   async findAll(query: QueryOrdersDto): Promise<PaginatedOrders> {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_PAGE_SIZE;
+    const where = this.buildWhere(query);
+
+    const [data, total] = await Promise.all([
+      this.prisma.client.order.findMany({
+        where,
+        include: ORDER_SUMMARY_INCLUDE,
+        orderBy: buildOrderOrderBy(query),
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.client.order.count({ where }),
+    ]);
+
+    return {
+      data: data.map((order) => toOrderSummaryResponse(order)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async exportCsv(query: QueryOrdersDto): Promise<CsvExportResponse> {
+    const where = this.buildWhere(query);
+    const total = await this.prisma.client.order.count({ where });
+
+    if (total > MAX_CSV_EXPORT_ROWS) {
+      throw new BadRequestException(
+        `This export contains ${total.toLocaleString()} orders. Narrow the filters to ${MAX_CSV_EXPORT_ROWS.toLocaleString()} orders or fewer.`,
+      );
+    }
+
+    const orders = await this.prisma.client.order.findMany({
+      where,
+      include: ORDER_SUMMARY_INCLUDE,
+      orderBy: buildOrderOrderBy(query),
+      take: MAX_CSV_EXPORT_ROWS,
+    });
+
+    const rows: unknown[][] = [
+      [
+        'Order number',
+        'Created at',
+        'Customer',
+        'Phone',
+        'Channel',
+        'Status',
+        'Payment status',
+        'Items',
+        'Subtotal',
+        'Discount',
+        'Shipping',
+        'Tax',
+        'Total',
+        'Paid',
+        'Outstanding',
+        'Carrier',
+        'Tracking number',
+      ],
+    ];
+
+    for (const order of orders) {
+      const items = order.items
+        .map((item) => `${item.quantity}x ${item.productName}`)
+        .join('; ');
+
+      rows.push([
+        order.orderNumber,
+        order.createdAt.toISOString(),
+        order.customer?.name ?? order.shippingName ?? 'Walk-in',
+        order.customer?.phone ?? order.shippingPhone ?? '',
+        formatOrderSource(order.source),
+        order.status,
+        order.paymentStatus,
+        items,
+        order.subtotal.toString(),
+        order.discountAmount.toString(),
+        order.shippingFee.toString(),
+        order.taxAmount.toString(),
+        order.totalAmount.toString(),
+        order.amountPaid.toString(),
+        order.totalAmount.minus(order.amountPaid).toString(),
+        order.shippingCarrier ?? '',
+        order.trackingNumber ?? '',
+      ]);
+    }
+
+    return {
+      fileName: buildCsvFileName('orders'),
+      content: toCsv(rows),
+    };
+  }
+
+  private buildWhere(query: QueryOrdersDto): Prisma.OrderWhereInput {
     const search = query.search || undefined;
 
     if (
@@ -388,6 +510,10 @@ export class OrdersService {
       conditions.push({ paymentStatus: query.paymentStatus });
     }
 
+    if (query.source) {
+      conditions.push({ source: query.source });
+    }
+
     if (query.customerId) {
       conditions.push({ customerId: query.customerId });
     }
@@ -405,29 +531,7 @@ export class OrdersService {
       });
     }
 
-    const where: Prisma.OrderWhereInput =
-      conditions.length > 0 ? { AND: conditions } : {};
-
-    const [data, total] = await Promise.all([
-      this.prisma.client.order.findMany({
-        where,
-        include: ORDER_SUMMARY_INCLUDE,
-        orderBy: buildOrderOrderBy(query),
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-      this.prisma.client.order.count({ where }),
-    ]);
-
-    return {
-      data: data.map((order) => toOrderSummaryResponse(order)),
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    };
+    return conditions.length > 0 ? { AND: conditions } : {};
   }
 
   async findOne(id: string): Promise<OrderResponse> {
@@ -491,6 +595,7 @@ export class OrdersService {
     }
 
     const data: Prisma.OrderUpdateInput = {};
+    const changedFields: string[] = [];
 
     if (dto.customerId !== undefined) {
       if (dto.customerId) {
@@ -499,45 +604,34 @@ export class OrdersService {
       } else {
         data.customer = { disconnect: true };
       }
+      changedFields.push('customer');
     }
 
-    if (dto.shippingName !== undefined) {
-      data.shippingName = dto.shippingName;
-    }
-
-    if (dto.shippingPhone !== undefined) {
-      data.shippingPhone = dto.shippingPhone;
-    }
-
-    if (dto.shippingAddress !== undefined) {
-      data.shippingAddress = dto.shippingAddress;
-    }
-
-    if (dto.shippingCity !== undefined) {
-      data.shippingCity = dto.shippingCity;
-    }
-
-    if (dto.shippingPostalCode !== undefined) {
-      data.shippingPostalCode = dto.shippingPostalCode;
-    }
-
-    if (dto.customerNote !== undefined) {
-      data.customerNote = dto.customerNote;
-    }
-
-    if (dto.internalNote !== undefined) {
-      data.internalNote = dto.internalNote;
-    }
+    const metadata = this.buildMetadataUpdate(dto);
+    Object.assign(data, metadata.data);
+    changedFields.push(...metadata.changedFields);
 
     if (Object.keys(data).length === 0) {
       return this.findOne(id);
     }
 
     try {
-      const updated = await this.prisma.client.order.update({
-        where: { id },
-        data,
-        include: ORDER_DETAIL_INCLUDE,
+      const updated = await this.prisma.client.$transaction(async (tx) => {
+        const order = await tx.order.update({
+          where: { id },
+          data,
+          include: ORDER_DETAIL_INCLUDE,
+        });
+
+        await this.events.record(tx, {
+          orderId: id,
+          type: OrderEventType.DETAILS_UPDATED,
+          message: `Order details updated: ${changedFields.join(', ')}`,
+          metadata: { fields: changedFields },
+          actor,
+        });
+
+        return order;
       });
 
       return toOrderResponse(updated);
@@ -563,6 +657,10 @@ export class OrdersService {
     }
 
     const quantities = mergeItemQuantities(dto.items ?? []);
+
+    if (dto.customerId) {
+      await this.ensureCustomerExists(dto.customerId);
+    }
 
     return this.prisma.client.$transaction(async (tx) => {
       const order = await this.lockOrder(tx, id);
@@ -755,11 +853,22 @@ export class OrdersService {
         .plus(order.shippingFee)
         .plus(order.taxAmount);
 
+      const metadata = this.buildMetadataUpdate(dto);
+      const changedFields = [...metadata.changedFields];
+
+      if (dto.customerId !== undefined) {
+        metadata.data.customer = dto.customerId
+          ? { connect: { id: dto.customerId } }
+          : { disconnect: true };
+        changedFields.push('customer');
+      }
+
       await tx.orderItem.deleteMany({ where: { orderId: id } });
 
       const updated = await tx.order.update({
         where: { id },
         data: {
+          ...metadata.data,
           subtotal,
           totalAmount,
           stockDeducted: lines.some((line) => line.trackedInventory),
@@ -776,6 +885,21 @@ export class OrdersService {
           },
         },
         include: ORDER_DETAIL_INCLUDE,
+      });
+
+      await this.events.record(tx, {
+        orderId: id,
+        type: OrderEventType.ITEMS_UPDATED,
+        message:
+          changedFields.length > 0
+            ? `Order items and ${changedFields.join(', ')} updated (${lines.length} line${lines.length === 1 ? '' : 's'})`
+            : `Order items updated (${lines.length} line${lines.length === 1 ? '' : 's'})`,
+        metadata: {
+          itemCount: lines.length,
+          fields: changedFields,
+          totalAmount: totalAmount.toString(),
+        },
+        actor,
       });
 
       return toOrderResponse(updated);
@@ -887,6 +1011,25 @@ export class OrdersService {
         throw new NotFoundException('Order not found');
       }
 
+      const returnedUnits = [...quantities.values()].reduce(
+        (sum, quantity) => sum + quantity,
+        0,
+      );
+
+      await this.events.record(tx, {
+        orderId: order.id,
+        type: OrderEventType.RETURN_RECORDED,
+        message: `Return recorded for ${returnedUnits} unit${returnedUnits === 1 ? '' : 's'}`,
+        metadata: {
+          items: [...quantities.entries()].map(([productId, quantity]) => ({
+            productId,
+            quantity,
+          })),
+          note: dto.note ?? null,
+        },
+        actor,
+      });
+
       return toOrderResponse(updated);
     });
   }
@@ -965,6 +1108,18 @@ export class OrdersService {
         });
       }
 
+      await this.events.record(tx, {
+        orderId: updated.id,
+        type: OrderEventType.STATUS_CHANGED,
+        message: `Status changed from ${order.status} to ${dto.status}`,
+        metadata: {
+          from: order.status,
+          to: dto.status,
+          cancellationReason: dto.cancellationReason ?? null,
+        },
+        actor,
+      });
+
       return toOrderResponse(updated);
     });
   }
@@ -1034,6 +1189,7 @@ export class OrdersService {
   async createPayment(
     orderId: string,
     dto: CreateOrderPaymentDto,
+    actor: User | null = null,
   ): Promise<OrderPaymentResponse> {
     const amount = new Prisma.Decimal(dto.amount);
     const status = dto.status ?? OrderPaymentStatus.COMPLETED;
@@ -1102,6 +1258,20 @@ export class OrdersService {
 
       await this.applyPaymentTotals(tx, orderId);
 
+      await this.events.record(tx, {
+        orderId,
+        type: OrderEventType.PAYMENT_RECORDED,
+        message: `Payment of ${amount.toString()} ${order.currency} recorded via ${dto.method}`,
+        metadata: {
+          paymentId: payment.id,
+          amount: amount.toString(),
+          method: dto.method,
+          status,
+          reference: dto.reference ?? null,
+        },
+        actor,
+      });
+
       return toPaymentResponse(payment);
     });
   }
@@ -1128,6 +1298,7 @@ export class OrdersService {
     orderId: string,
     paymentId: string,
     dto: UpdateOrderPaymentStatusDto,
+    actor: User | null = null,
   ): Promise<OrderPaymentResponse> {
     return this.prisma.client.$transaction(async (tx) => {
       await this.lockOrder(tx, orderId);
@@ -1158,8 +1329,80 @@ export class OrdersService {
 
       await this.applyPaymentTotals(tx, orderId);
 
+      await this.events.record(tx, {
+        orderId,
+        type: OrderEventType.PAYMENT_STATUS_CHANGED,
+        message: `Payment status changed from ${payment.status} to ${dto.status}`,
+        metadata: {
+          paymentId: payment.id,
+          from: payment.status,
+          to: dto.status,
+        },
+        actor,
+      });
+
       return toPaymentResponse(updated);
     });
+  }
+
+  private buildMetadataUpdate(dto: UpdateOrderDto): {
+    data: Prisma.OrderUpdateInput;
+    changedFields: string[];
+  } {
+    const data: Prisma.OrderUpdateInput = {};
+    const changedFields: string[] = [];
+
+    if (dto.shippingName !== undefined) {
+      data.shippingName = dto.shippingName;
+      changedFields.push('shipping name');
+    }
+
+    if (dto.shippingPhone !== undefined) {
+      data.shippingPhone = dto.shippingPhone;
+      changedFields.push('shipping phone');
+    }
+
+    if (dto.shippingAddress !== undefined) {
+      data.shippingAddress = dto.shippingAddress;
+      changedFields.push('shipping address');
+    }
+
+    if (dto.shippingCity !== undefined) {
+      data.shippingCity = dto.shippingCity;
+      changedFields.push('shipping city');
+    }
+
+    if (dto.shippingPostalCode !== undefined) {
+      data.shippingPostalCode = dto.shippingPostalCode;
+      changedFields.push('postal code');
+    }
+
+    if (dto.shippingCarrier !== undefined) {
+      data.shippingCarrier = dto.shippingCarrier;
+      changedFields.push('carrier');
+    }
+
+    if (dto.trackingNumber !== undefined) {
+      data.trackingNumber = dto.trackingNumber;
+      changedFields.push('tracking number');
+    }
+
+    if (dto.source !== undefined) {
+      data.source = dto.source;
+      changedFields.push('source');
+    }
+
+    if (dto.customerNote !== undefined) {
+      data.customerNote = dto.customerNote;
+      changedFields.push('customer note');
+    }
+
+    if (dto.internalNote !== undefined) {
+      data.internalNote = dto.internalNote;
+      changedFields.push('internal note');
+    }
+
+    return { data, changedFields };
   }
 
   private async ensureCustomerExists(customerId: string): Promise<void> {

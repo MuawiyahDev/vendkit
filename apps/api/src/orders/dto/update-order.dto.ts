@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayNotEmpty,
   IsArray,
+  IsEnum,
   IsOptional,
   IsString,
   IsUUID,
@@ -11,6 +12,7 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { OrderSource } from '@repo/database';
 import {
   normalizePhone,
   PHONE_INVALID_MESSAGE,
@@ -27,6 +29,8 @@ import {
   CreateOrderItemDto,
   MAX_ORDER_ITEM_LINES,
   ORDER_NOTE_MAX_LENGTH,
+  SHIPPING_CARRIER_MAX_LENGTH,
+  TRACKING_NUMBER_MAX_LENGTH,
 } from './create-order.dto.js';
 
 export class UpdateOrderDto {
@@ -71,6 +75,22 @@ export class UpdateOrderDto {
   @IsString()
   @MaxLength(CUSTOMER_POSTAL_CODE_MAX_LENGTH)
   shippingPostalCode?: string | null;
+
+  @IsOptional()
+  @Transform(emptyStringToNull)
+  @IsString()
+  @MaxLength(SHIPPING_CARRIER_MAX_LENGTH)
+  shippingCarrier?: string | null;
+
+  @IsOptional()
+  @Transform(emptyStringToNull)
+  @IsString()
+  @MaxLength(TRACKING_NUMBER_MAX_LENGTH)
+  trackingNumber?: string | null;
+
+  @IsOptional()
+  @IsEnum(OrderSource)
+  source?: OrderSource;
 
   @IsOptional()
   @Transform(emptyStringToNull)
