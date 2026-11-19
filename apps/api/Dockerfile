@@ -23,6 +23,7 @@ COPY packages/database/prisma.config.ts packages/database/
 RUN pnpm install --frozen-lockfile
 
 COPY packages/database packages/database
+COPY packages/typescript-config packages/typescript-config
 COPY apps/api apps/api
 
 RUN pnpm --filter @repo/database build \
