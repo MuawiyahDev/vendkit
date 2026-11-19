@@ -28,6 +28,12 @@ export class InventoryController {
   }
 
   @Permissions('inventory:read')
+  @Get('export')
+  exportCsv(@Query() query: QueryInventoryDto) {
+    return this.inventoryService.exportCsv(query);
+  }
+
+  @Permissions('inventory:read')
   @Get('movements')
   listMovements(@Query() query: QueryStockMovementsDto) {
     return this.inventoryService.listMovements(query);

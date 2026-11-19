@@ -12,6 +12,12 @@ import {
 } from '@repo/database';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
+  buildCsvFileName,
+  MAX_CSV_EXPORT_ROWS,
+  toCsv,
+} from '../common/utils/csv.util.js';
+import type { CsvExportResponse } from '../common/types/csv-export.types.js';
+import {
   INVENTORY_PAGE_SIZE,
   INVENTORY_PRODUCT_INCLUDE,
   STOCK_MOVEMENT_ORDER_INCLUDE,
@@ -38,6 +44,7 @@ import type {
 import {
   buildInventoryOrderBy,
   buildInventoryStatusCondition,
+  deriveStockStatus,
   isUniqueConstraintViolation,
   mapInventoryErrors,
   resolveAdjustment,
@@ -84,31 +91,7 @@ export class InventoryService {
   async findAll(query: QueryInventoryDto): Promise<PaginatedInventory> {
     const page = query.page ?? 1;
     const limit = query.limit ?? INVENTORY_PAGE_SIZE;
-    const search = query.search || undefined;
-
-    const conditions: Prisma.ProductWhereInput[] = [];
-
-    if (search) {
-      conditions.push({
-        OR: [
-          { name: { contains: search, mode: 'insensitive' } },
-          { sku: { contains: search, mode: 'insensitive' } },
-          { slug: { contains: search, mode: 'insensitive' } },
-        ],
-      });
-    }
-
-    const statusCondition = buildInventoryStatusCondition(
-      query.status ?? 'all',
-      this.prisma.client.product.fields.lowStockThreshold,
-    );
-
-    if (statusCondition) {
-      conditions.push(statusCondition);
-    }
-
-    const where: Prisma.ProductWhereInput =
-      conditions.length > 0 ? { AND: conditions } : {};
+    const where = this.buildWhere(query);
 
     const [data, total] = await Promise.all([
       this.prisma.client.product.findMany({
@@ -133,6 +116,102 @@ export class InventoryService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  async exportCsv(query: QueryInventoryDto): Promise<CsvExportResponse> {
+    const where = this.buildWhere(query);
+    const total = await this.prisma.client.product.count({ where });
+
+    if (total > MAX_CSV_EXPORT_ROWS) {
+      throw new BadRequestException(
+        `This export contains ${total.toLocaleString()} products. Narrow the filters to ${MAX_CSV_EXPORT_ROWS.toLocaleString()} products or fewer.`,
+      );
+    }
+
+    const products = await this.prisma.client.product.findMany({
+      where,
+      select: {
+        name: true,
+        sku: true,
+        category: { select: { name: true } },
+        stockQuantity: true,
+        lowStockThreshold: true,
+        trackInventory: true,
+        isActive: true,
+        unit: true,
+        updatedAt: true,
+      },
+      orderBy: buildInventoryOrderBy(
+        query.sortBy as InventorySortField | undefined,
+        query.sortOrder as SortOrder | undefined,
+      ),
+      take: MAX_CSV_EXPORT_ROWS,
+    });
+
+    const rows: unknown[][] = [
+      [
+        'SKU',
+        'Product',
+        'Category',
+        'Stock',
+        'Low stock threshold',
+        'Tracks inventory',
+        'Status',
+        'Active',
+        'Unit',
+        'Updated at',
+      ],
+    ];
+
+    for (const product of products) {
+      rows.push([
+        product.sku ?? '',
+        product.name,
+        product.category.name,
+        product.stockQuantity,
+        product.lowStockThreshold ?? '',
+        product.trackInventory ? 'Yes' : 'No',
+        deriveStockStatus(
+          product.trackInventory,
+          product.stockQuantity,
+          product.lowStockThreshold,
+        ),
+        product.isActive ? 'Yes' : 'No',
+        product.unit ?? '',
+        product.updatedAt.toISOString(),
+      ]);
+    }
+
+    return {
+      fileName: buildCsvFileName('inventory'),
+      content: toCsv(rows),
+    };
+  }
+
+  private buildWhere(query: QueryInventoryDto): Prisma.ProductWhereInput {
+    const search = query.search || undefined;
+    const conditions: Prisma.ProductWhereInput[] = [];
+
+    if (search) {
+      conditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { sku: { contains: search, mode: 'insensitive' } },
+          { slug: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+
+    const statusCondition = buildInventoryStatusCondition(
+      query.status ?? 'all',
+      this.prisma.client.product.fields.lowStockThreshold,
+    );
+
+    if (statusCondition) {
+      conditions.push(statusCondition);
+    }
+
+    return conditions.length > 0 ? { AND: conditions } : {};
   }
 
   async findOne(productId: string): Promise<InventoryItemResponse> {
