@@ -38,3 +38,21 @@ jobs:
       - run: pnpm --filter web test
 
       - run: pnpm build
+
+  docker-images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Compose configuration
+        env:
+          POSTGRES_PASSWORD: ci-postgres-password
+          JWT_SECRET: ci-only-secret-value-that-is-at-least-32-characters
+          API_KEY: ci-only-api-key-value
+        run: docker compose config --quiet
+
+      - name: Build API image
+        run: docker build -f apps/api/Dockerfile -t vendkit-api:ci .
+
+      - name: Build web image
+        run: docker build -f apps/web/Dockerfile -t vendkit-web:ci .
