@@ -22,3 +22,12 @@ export function normalizePhone(value: string): string {
 
   return `${hasCountryCode ? '+' : ''}${digits}`;
 }
+
+/**
+ * Digits-only comparison key used to detect duplicate customer phone
+ * numbers even when one entry includes formatting or a leading plus.
+ * Matches the `Customer.phoneNormalized` column.
+ */
+export function phoneDuplicateKey(value: string): string {
+  return normalizePhone(value).replace(NON_DIGITS, '').slice(0, 20);
+}

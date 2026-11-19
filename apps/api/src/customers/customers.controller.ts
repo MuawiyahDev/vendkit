@@ -14,6 +14,7 @@ import {
 import { Permissions } from '../auth/decorators/permissions.decorator.js';
 import { CustomersService } from './customers.service.js';
 import { CreateCustomerDto } from './dto/create-customer.dto.js';
+import { FindCustomerDuplicatesDto } from './dto/find-customer-duplicates.dto.js';
 import { QueryCustomersDto } from './dto/query-customers.dto.js';
 import { UpdateCustomerDto } from './dto/update-customer.dto.js';
 
@@ -31,6 +32,18 @@ export class CustomersController {
   @Get()
   findAll(@Query() query: QueryCustomersDto) {
     return this.customersService.findAll(query);
+  }
+
+  @Permissions('customer:read')
+  @Get('export')
+  exportCsv(@Query() query: QueryCustomersDto) {
+    return this.customersService.exportCsv(query);
+  }
+
+  @Permissions('customer:read')
+  @Get('duplicates')
+  findDuplicates(@Query() query: FindCustomerDuplicatesDto) {
+    return this.customersService.findDuplicates(query);
   }
 
   @Permissions('customer:read')

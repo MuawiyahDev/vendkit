@@ -13,6 +13,7 @@ const customerFixture: Customer = {
   id: '3f1d2c9a-0000-4000-8000-000000000001',
   name: 'Ayesha Rahman',
   phone: '+8801712345678',
+  phoneNormalized: '8801712345678',
   email: 'ayesha@example.com',
   address: 'House 12, Road 5',
   city: 'Dhaka',
@@ -75,6 +76,7 @@ describe('CustomersService', () => {
         data: {
           name: 'Ayesha Rahman',
           phone: '+8801712345678',
+          phoneNormalized: '8801712345678',
           email: null,
           address: null,
           city: null,
@@ -363,7 +365,7 @@ describe('CustomersService', () => {
 
       expect(prismaMock.client.customer.update).toHaveBeenCalledWith({
         where: { id: customerFixture.id },
-        data: { phone: '+12025550193' },
+        data: { phone: '+12025550193', phoneNormalized: '12025550193' },
       });
     });
 
