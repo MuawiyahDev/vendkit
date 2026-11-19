@@ -1,6 +1,6 @@
 "use client";
 
-import { ListFilter, RefreshCw, RotateCcw } from "lucide-react";
+import { Download, ListFilter, RefreshCw, RotateCcw } from "lucide-react";
 
 import { NativeSelect } from "@/components/shared/native-select";
 import { SearchInput } from "@/components/shared/search-input";
@@ -25,6 +25,8 @@ interface InventoryToolbarProps {
   total: number | null;
   onRefresh: () => void;
   onResetFilters: () => void;
+  onExport: () => void;
+  isExporting: boolean;
   hasActiveFilters: boolean;
 }
 
@@ -88,6 +90,8 @@ export function InventoryToolbar({
   total,
   onRefresh,
   onResetFilters,
+  onExport,
+  isExporting,
   hasActiveFilters,
 }: InventoryToolbarProps) {
   return (
@@ -120,6 +124,21 @@ export function InventoryToolbar({
               <span className="hidden sm:inline">Reset filters</span>
             </Button>
           ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onExport}
+            disabled={isInitialLoading || isExporting}
+          >
+            <Download
+              className={isExporting ? "animate-pulse" : undefined}
+              aria-hidden="true"
+            />
+            <span className="hidden sm:inline">
+              {isExporting ? "Exporting…" : "Export CSV"}
+            </span>
+          </Button>
           <Button
             type="button"
             variant="outline"

@@ -189,6 +189,24 @@ export async function getInventoryOverview({
   return apiFetch<InventoryOverview>("/api/inventory/overview", { signal });
 }
 
+export interface InventoryCsvExport {
+  fileName: string;
+  content: string;
+}
+
+export async function exportInventoryCsv(
+  params: Omit<InventoryListParams, "page" | "limit"> = {},
+): Promise<InventoryCsvExport> {
+  const query = buildListQuery({
+    search: params.search,
+    status: params.status,
+    sortBy: params.sortBy,
+    sortOrder: params.sortOrder,
+  });
+
+  return apiFetch<InventoryCsvExport>(`/api/inventory/export${query}`);
+}
+
 export async function getInventoryItem(
   productId: string,
   { signal }: RequestOptions = {},

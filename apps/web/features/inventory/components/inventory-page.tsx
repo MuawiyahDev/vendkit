@@ -19,12 +19,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { downloadCsv } from "@/lib/download";
 
-import type {
-  InventorySortField,
-  InventoryItem,
-  SortOrder,
-  StockAdjustmentResult,
+import {
+  exportInventoryCsv,
+  type InventorySortField,
+  type InventoryItem,
+  type SortOrder,
+  type StockAdjustmentResult,
 } from "../api/inventory-api";
 import { useInventory } from "../hooks/use-inventory";
 import { useInventoryOverview } from "../hooks/use-inventory-overview";
@@ -53,6 +55,7 @@ function toSortingEntry(
 export function InventoryPage() {
   const [activeView, setActiveView] = useState<View>("stock");
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [adjustTarget, setAdjustTarget] = useState<InventoryItem | null>(null);
   const [settingsTarget, setSettingsTarget] = useState<InventoryItem | null>(
     null,
@@ -105,6 +108,33 @@ export function InventoryPage() {
   function handleViewHistory(item: InventoryItem) {
     movements.showProduct({ id: item.id, name: item.name });
     setActiveView("movements");
+  }
+
+  async function handleExport() {
+    setIsExporting(true);
+    setFeedback(null);
+
+    try {
+      const csv = await exportInventoryCsv({
+        search: inventory.debouncedSearch || undefined,
+        status:
+          inventory.statusFilter === "all"
+            ? undefined
+            : inventory.statusFilter,
+        sortBy: inventory.sortBy,
+        sortOrder: inventory.sortOrder,
+      });
+      downloadCsv(csv);
+      setFeedback("Inventory exported as CSV.");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while exporting inventory.",
+      );
+    } finally {
+      setIsExporting(false);
+    }
   }
 
   const hasStockFilters =
@@ -194,6 +224,10 @@ export function InventoryPage() {
             total={inventory.meta?.total ?? null}
             onRefresh={refreshAll}
             onResetFilters={inventory.clearFilters}
+            onExport={() => {
+              void handleExport();
+            }}
+            isExporting={isExporting}
             hasActiveFilters={hasStockFilters}
           />
 
