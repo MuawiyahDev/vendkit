@@ -27,6 +27,33 @@ enum PaymentStatus {
   PAID
 }
 
+/// Where an order came from. Sellers mostly take orders through messaging
+/// channels, so the channel is tracked for filtering and reporting.
+enum OrderSource {
+  FACEBOOK
+  INSTAGRAM
+  WHATSAPP
+  TIKTOK
+  WEBSITE
+  PHONE
+  WALK_IN
+  OTHER
+}
+
+/// Human-readable milestones shown on the order timeline.
+enum OrderEventType {
+  ORDER_CREATED
+  DETAILS_UPDATED
+  ITEMS_UPDATED
+  STATUS_CHANGED
+  PAYMENT_RECORDED
+  PAYMENT_STATUS_CHANGED
+  RETURN_RECORDED
+  INVOICE_CREATED
+  INVOICE_ISSUED
+  INVOICE_CANCELLED
+}
+
 enum PaymentMethod {
   CASH
   BANK_TRANSFER
@@ -216,6 +243,9 @@ model Customer {
   id         String   @id @default(uuid())
   name       String
   phone      String
+  /// Digits-only phone used to detect duplicates reliably regardless of
+  /// formatting (spaces, dashes, parentheses or a leading plus).
+  phoneNormalized String? @db.VarChar(20)
   email      String?
   address    String?
   city       String?
@@ -226,6 +256,7 @@ model Customer {
   orders     Order[]
 
   @@index([phone])
+  @@index([phoneNormalized])
   @@index([name])
   @@index([createdAt])
 }
@@ -252,6 +283,7 @@ model Order {
   customer           Customer?     @relation(fields: [customerId], references: [id], onDelete: Restrict)
   status             OrderStatus   @default(PENDING)
   paymentStatus      PaymentStatus @default(UNPAID)
+  source             OrderSource   @default(OTHER)
   currency           String        @default("BDT") @db.VarChar(3)
   subtotal           Decimal       @db.Decimal(12, 2)
   discountAmount     Decimal       @default(0) @db.Decimal(12, 2)
@@ -265,6 +297,8 @@ model Order {
   shippingAddress    String?
   shippingCity       String?
   shippingPostalCode String?
+  shippingCarrier    String?       @db.VarChar(100)
+  trackingNumber     String?       @db.VarChar(100)
   customerNote       String?
   internalNote       String?
   cancellationReason String?
@@ -274,10 +308,12 @@ model Order {
   items              OrderItem[]
   payments           OrderPayment[]
   stockMovements     StockMovement[]
+  events             OrderEvent[]
   invoice            Invoice?
 
   @@index([status, createdAt])
   @@index([paymentStatus, createdAt])
+  @@index([source, createdAt])
   @@index([customerId, createdAt])
   @@index([createdAt])
 }
@@ -343,6 +379,23 @@ model OrderPayment {
 
   @@unique([orderId, reference])
   @@index([orderId, status])
+}
+
+/// Append-only history of what happened to an order. `metadata` keeps
+/// previous/next values so the timeline can explain every change.
+model OrderEvent {
+  id        String         @id @default(uuid())
+  orderId   String
+  order     Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  type      OrderEventType
+  message   String         @db.VarChar(500)
+  metadata  Json?
+  actorId   String?
+  actorName String?        @db.VarChar(200)
+  createdAt DateTime       @default(now())
+
+  @@index([orderId, createdAt])
+  @@index([type, createdAt])
 }
 
 /// A persisted invoice issued against exactly one order. Totals and document
