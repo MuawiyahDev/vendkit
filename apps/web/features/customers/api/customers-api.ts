@@ -19,6 +19,26 @@ export interface CustomerListResponse {
   meta: PaginationMeta;
 }
 
+export interface CustomerDuplicateMatch {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  city: string | null;
+  ordersCount: number;
+  lastOrderAt: string | null;
+  createdAt: string;
+}
+
+export interface CustomerDuplicateResponse {
+  matches: CustomerDuplicateMatch[];
+}
+
+export interface CsvExport {
+  fileName: string;
+  content: string;
+}
+
 export type CustomerSortField = "createdAt" | "updatedAt" | "name";
 export type SortOrder = "asc" | "desc";
 
@@ -129,6 +149,43 @@ export async function updateCustomer(
 
 export async function deleteCustomer(id: string): Promise<void> {
   await apiFetch<undefined>(`/api/customers/${id}`, { method: "DELETE" });
+}
+
+export async function findCustomerDuplicates(
+  phone: string,
+  excludeId?: string,
+  { signal }: RequestOptions = {},
+): Promise<CustomerDuplicateResponse> {
+  const searchParams = new URLSearchParams({ phone });
+  if (excludeId) {
+    searchParams.set("excludeId", excludeId);
+  }
+
+  return apiFetch<CustomerDuplicateResponse>(
+    `/api/customers/duplicates?${searchParams.toString()}`,
+    { signal },
+  );
+}
+
+export async function exportCustomersCsv(
+  params: Omit<CustomerListParams, "page" | "limit"> = {},
+): Promise<CsvExport> {
+  const searchParams = new URLSearchParams();
+
+  if (params.search) {
+    searchParams.set("search", params.search);
+  }
+  if (params.sortBy) {
+    searchParams.set("sortBy", params.sortBy);
+  }
+  if (params.sortOrder) {
+    searchParams.set("sortOrder", params.sortOrder);
+  }
+
+  const query = searchParams.toString();
+  return apiFetch<CsvExport>(
+    `/api/customers/export${query ? `?${query}` : ""}`,
+  );
 }
 
 export async function getCustomerOrderHistory(

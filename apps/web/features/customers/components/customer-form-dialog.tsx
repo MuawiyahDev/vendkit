@@ -1,9 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AlertCircle, LoaderCircle } from "lucide-react";
+import { AlertCircle, LoaderCircle, Users } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { FieldError } from "@/components/shared/field-error";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,14 +26,17 @@ import { toPhoneInputValue } from "@/lib/phone";
 
 import {
   createCustomer,
+  findCustomerDuplicates,
   updateCustomer,
   type Customer,
+  type CustomerDuplicateMatch,
 } from "../api/customers-api";
 import {
   customerFormSchema,
   type CustomerFormPayload,
   type CustomerFormValues,
 } from "../schemas/customers.schemas";
+import { normalizePhone, PHONE_PATTERN } from "../utils/customers.utils";
 
 const NAME_ERROR_ID = "customer-form-name-error";
 const PHONE_ERROR_ID = "customer-form-phone-error";
@@ -73,6 +76,7 @@ export function CustomerFormDialog({
   const [serverError, setServerError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
   const [prevOpen, setPrevOpen] = useState(open);
+  const [duplicates, setDuplicates] = useState<CustomerDuplicateMatch[]>([]);
   const defaultCountry = useDefaultPhoneCountry();
 
   // Reset transient state as soon as the dialog opens (render-time
@@ -82,6 +86,8 @@ export function CustomerFormDialog({
     if (open) {
       setServerError(null);
       setConfirmDiscard(false);
+    } else {
+      setDuplicates([]);
     }
   }
 
@@ -101,6 +107,44 @@ export function CustomerFormDialog({
       reset(toDefaultValues(customer));
     }
   }, [open, customer, reset]);
+
+  const watchedPhone = useWatch({ control, name: "phone" });
+  const normalizedPhone = normalizePhone(watchedPhone ?? "");
+  const visibleDuplicates = PHONE_PATTERN.test(normalizedPhone)
+    ? duplicates
+    : [];
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    if (!PHONE_PATTERN.test(normalizedPhone)) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      void findCustomerDuplicates(normalizedPhone, customer?.id, {
+        signal: controller.signal,
+      })
+        .then((result) => {
+          if (!controller.signal.aborted) {
+            setDuplicates(result.matches);
+          }
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            setDuplicates([]);
+          }
+        });
+    }, 400);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, normalizedPhone, customer?.id]);
 
   function close() {
     setServerError(null);
@@ -259,6 +303,28 @@ export function CustomerFormDialog({
                     id={PHONE_ERROR_ID}
                     message={errors.phone?.message}
                   />
+                  {visibleDuplicates.length > 0 ? (
+                    <div className="border-warning/25 bg-warning-soft text-warning-soft-foreground flex items-start gap-2 rounded-lg border px-3 py-2.5 text-xs leading-relaxed">
+                      <Users className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium">
+                          This phone number is already saved
+                        </span>
+                        {visibleDuplicates.map((match) => (
+                          <span key={match.id}>
+                            {match.name}
+                            {match.ordersCount > 0
+                              ? ` · ${match.ordersCount} order${match.ordersCount === 1 ? "" : "s"}`
+                              : ""}
+                          </span>
+                        ))}
+                        <span>
+                          You can still save this customer if they share a
+                          number.
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
               </div>
 

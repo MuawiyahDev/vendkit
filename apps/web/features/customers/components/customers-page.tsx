@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, Plus, RefreshCw, UserX, Users } from "lucide-react";
+import { AlertCircle, Download, Plus, RefreshCw, UserX, Users } from "lucide-react";
 import { useCallback, useState } from "react";
 
 import { EmptyState } from "@/components/shared/empty-state";
@@ -10,8 +10,12 @@ import { TablePagination } from "@/components/shared/table-pagination";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { downloadCsv } from "@/lib/download";
 
-import type { Customer } from "../api/customers-api";
+import {
+  exportCustomersCsv,
+  type Customer,
+} from "../api/customers-api";
 import { useCustomers } from "../hooks/use-customers";
 import { CustomerDeleteDialog } from "./customer-delete-dialog";
 import { CustomerFormDialog } from "./customer-form-dialog";
@@ -42,8 +46,32 @@ export function CustomersPage() {
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const dismissFeedback = useCallback(() => setFeedback(null), []);
+
+  async function handleExport() {
+    setIsExporting(true);
+    setFeedback(null);
+
+    try {
+      const csv = await exportCustomersCsv({
+        search: debouncedSearch || undefined,
+        sortBy,
+        sortOrder,
+      });
+      downloadCsv(csv);
+      setFeedback("Customers exported as CSV.");
+    } catch (error) {
+      setFeedback(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while exporting customers.",
+      );
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   function handleFormSuccess(customer: Customer, mode: "create" | "edit") {
     setEditor(null);
@@ -118,6 +146,23 @@ export function CustomersPage() {
                 onSortChange={setSort}
                 disabled={isInitialLoading}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void handleExport();
+                }}
+                disabled={isInitialLoading || isExporting}
+              >
+                <Download
+                  className={isExporting ? "animate-pulse" : undefined}
+                  aria-hidden="true"
+                />
+                <span className="hidden sm:inline">
+                  {isExporting ? "Exporting…" : "Export CSV"}
+                </span>
+              </Button>
               <Button
                 type="button"
                 variant="outline"
