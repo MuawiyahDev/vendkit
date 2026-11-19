@@ -4,6 +4,8 @@
 node_modules
 .pnp
 .pnp.js
+# This is a pnpm workspace; npm lockfiles should not be committed.
+package-lock.json
 
 # Local env files
 .env
