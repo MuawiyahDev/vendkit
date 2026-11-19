@@ -54,6 +54,15 @@ describe('DashboardService', () => {
       customer: {
         count: vi.fn(),
       },
+      invoice: {
+        count: vi.fn(),
+      },
+      backup: {
+        count: vi.fn(),
+      },
+      user: {
+        count: vi.fn(),
+      },
       product: {
         count: vi.fn(),
         findMany: vi.fn(),
@@ -64,12 +73,19 @@ describe('DashboardService', () => {
 
   const settingsMock = {
     getRegionalSettings: vi.fn(),
+    getBusinessProfile: vi.fn(),
   };
 
   beforeEach(async () => {
     vi.clearAllMocks();
 
     settingsMock.getRegionalSettings.mockResolvedValue(regionalSettings);
+    settingsMock.getBusinessProfile.mockResolvedValue({
+      businessName: 'VendKit',
+      email: null,
+      phone: null,
+      addressLine1: null,
+    });
 
     prismaMock.client.order.aggregate
       .mockResolvedValueOnce({
@@ -83,11 +99,16 @@ describe('DashboardService', () => {
 
     prismaMock.client.order.count
       .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(2);
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(12);
 
     prismaMock.client.customer.count
       .mockResolvedValueOnce(8)
       .mockResolvedValueOnce(3);
+
+    prismaMock.client.invoice.count.mockResolvedValue(0);
+    prismaMock.client.backup.count.mockResolvedValue(0);
+    prismaMock.client.user.count.mockResolvedValue(1);
 
     prismaMock.client.product.count.mockImplementation(
       async ({ where }: { where: Record<string, unknown> }) => {

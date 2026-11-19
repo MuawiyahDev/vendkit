@@ -19,6 +19,7 @@ import type {
   DashboardRegionalSettings,
   DashboardResponse,
   DashboardSeriesPoint,
+  DashboardSetup,
   DashboardStatusCount,
   DashboardSummary,
   LocalDateParts,
@@ -96,6 +97,11 @@ export class DashboardService {
       recentOrders,
       bestSellingProducts,
       inventoryAlerts,
+      totalOrders,
+      invoiceCount,
+      completedBackups,
+      userCount,
+      businessProfile,
     ] = await Promise.all([
       this.prisma.client.order.aggregate({
         where: this.revenueWhere(current),
@@ -141,6 +147,11 @@ export class DashboardService {
       this.loadRecentOrders(current),
       this.loadBestSellingProducts(current),
       this.loadInventoryAlerts(),
+      this.prisma.client.order.count(),
+      this.prisma.client.invoice.count(),
+      this.prisma.client.backup.count({ where: { status: 'COMPLETED' } }),
+      this.prisma.client.user.count(),
+      this.settings.getBusinessProfile(),
     ]);
 
     const summary = this.buildSummary({
@@ -165,6 +176,103 @@ export class DashboardService {
       recentOrders,
       bestSellingProducts,
       inventoryAlerts,
+      setup: this.buildSetup({
+        totalProducts,
+        totalCustomers,
+        totalOrders,
+        invoiceCount,
+        completedBackups,
+        userCount,
+        businessName: businessProfile.businessName,
+        businessEmail: businessProfile.email,
+        businessPhone: businessProfile.phone,
+        businessAddress: businessProfile.addressLine1,
+      }),
+    };
+  }
+
+  private buildSetup(input: {
+    totalProducts: number;
+    totalCustomers: number;
+    totalOrders: number;
+    invoiceCount: number;
+    completedBackups: number;
+    userCount: number;
+    businessName: string;
+    businessEmail: string | null;
+    businessPhone: string | null;
+    businessAddress: string | null;
+  }): DashboardSetup {
+    const businessConfigured =
+      (input.businessName.trim().length > 0 &&
+        input.businessName.trim() !== 'VendKit') ||
+      Boolean(input.businessEmail?.trim()) ||
+      Boolean(input.businessPhone?.trim()) ||
+      Boolean(input.businessAddress?.trim());
+
+    const steps = [
+      {
+        key: 'business-profile',
+        title: 'Set up your business profile',
+        description:
+          'Add the name, contact details and address that appear on invoices.',
+        href: '/settings/business-profile',
+        completed: businessConfigured,
+      },
+      {
+        key: 'first-product',
+        title: 'Add your first product',
+        description:
+          'Products provide the prices and stock that orders are built from.',
+        href: '/products/new',
+        completed: input.totalProducts > 0,
+      },
+      {
+        key: 'first-customer',
+        title: 'Save a customer',
+        description:
+          'Saved customers make repeat orders faster and keep contact details in one place.',
+        href: '/customers',
+        completed: input.totalCustomers > 0,
+      },
+      {
+        key: 'first-order',
+        title: 'Create your first order',
+        description:
+          'Record a sale from Facebook, Instagram, WhatsApp or anywhere else.',
+        href: '/orders/new',
+        completed: input.totalOrders > 0,
+      },
+      {
+        key: 'first-invoice',
+        title: 'Issue an invoice',
+        description:
+          'Give buyers a professional document with a permanent invoice number.',
+        href: '/invoices',
+        completed: input.invoiceCount > 0,
+      },
+      {
+        key: 'first-backup',
+        title: 'Download a backup',
+        description:
+          'Keep a portable copy of your business data before you need it.',
+        href: '/settings/backup',
+        completed: input.completedBackups > 0,
+      },
+      {
+        key: 'invite-team',
+        title: 'Invite a teammate',
+        description:
+          'Add someone who helps you pack, deliver or answer customers.',
+        href: '/team',
+        completed: input.userCount > 1,
+      },
+    ];
+
+    return {
+      completed: steps.filter((step) => step.completed).length,
+      total: steps.length,
+      steps,
     };
   }
 
