@@ -9,6 +9,9 @@ no subscription.
 
 - **Orders** — create, edit, cancel, filter, and search orders; record
   payments; track outstanding balances; record returns back into stock.
+  Every order records its sales channel (Facebook, Instagram, WhatsApp,
+  website, walk-in, and more), courier and tracking number, plus a full
+  activity timeline from creation to delivery.
 - **Invoices** — persistent, numbered invoices per order. Totals, business
   details, and terms are captured when the invoice is created, then rendered
   as a downloadable PDF. Drafts can be issued later; issued invoices can be
@@ -16,13 +19,19 @@ no subscription.
 - **Products and catalog** — categories, brands, SKUs, images, and pricing.
 - **Inventory** — stock tracking with an immutable movement history, low-stock
   alerts, and automatic deduction when orders are placed.
-- **Customers** — addresses, notes, and full order history.
+- **Customers** — addresses, notes, full order history, and phone-based
+  duplicate detection when a number is already saved.
+- **Reports** — revenue, orders, average order value, status and channel
+  breakdowns, daily sales, top products, and top customers for any date range.
+- **CSV exports** — download filtered orders, customers, and inventory with
+  spreadsheet-safe escaping.
 - **Team** — administrators can create members and administrators, and reset
   passwords. Public sign-up is closed after the first account.
 - **Media library** — upload, browse, and reuse product and branding images.
 - **WhatsApp hand-off** — pre-filled order messages you can send to a customer
   from the order page.
-- **Dashboard** — revenue, order status, best sellers, and stock alerts.
+- **Dashboard** — revenue, order status, best sellers, stock alerts, and a
+  setup checklist driven by real progress.
 - **Settings** — business profile, invoice branding and numbering, regional
   formats, tax, order defaults, payments, shipping, and notifications.
 - **Backup and restore** — download a complete archive of business data and
